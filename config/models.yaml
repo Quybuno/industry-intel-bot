@@ -1,0 +1,20 @@
+providers:
+  - name: ollama
+    type: local
+    models:
+      - id: qwen2.5:7b
+        tier: fast
+      - id: qwen2.5:14b
+        tier: deep
+
+  - name: openai
+    type: cloud
+    env_var: OPENAI_API_KEY
+    models:
+      - id: gpt-4o-mini
+        tier: cloud
+    max_per_run: 10
+
+routing:
+  default_tier: fast
+  deep_threshold: 7

@@ -1,0 +1,168 @@
+2026-07-13T09:34:41 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:34:41 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.constructiondive.com/feeds/news/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:41 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.technologyreview.com/feed/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:41 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://venturebeat.com/feed/: 7 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:41 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.theverge.com/rss/index.xml: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:41 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.wired.com/feed/rss: 50 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:41 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:34:42 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:34:42 INFO [src.intel_bot.ingest.rss_fetcher] Fetched http://feeds.feedburner.com/TechCrunch/: 21 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:42 INFO [src.intel_bot.ingest.rss_fetcher] Fetched http://feeds.arstechnica.com/arstechnica/index: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:42 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://news.ycombinator.com/rss: 30 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:42 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://research.google/blog/rss/: 100 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:42 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:43 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.nature.com/nature.rss: 75 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:43 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.statnews.com/feed/: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:34:43 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.utilitydive.com/feeds/news/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:34:43 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:34:45 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.achrnews.com/rss/articles
+2026-07-13T09:34:45 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:34:45 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36)
+2026-07-13T09:34:45 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36)
+2026-07-13T09:34:46 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:34:46 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.enr.com/rss/informationtech
+2026-07-13T09:34:46 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:34:48 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910
+2026-07-13T09:34:48 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='construction_dive' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='mit_tech_review' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='venturebeat' inserted=0 skipped=1
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='the_verge' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='wired' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='techcrunch' inserted=0 skipped=1
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='ars_technica' inserted=0 skipped=1
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='hacker_news' inserted=0 skipped=1
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='google_ai' inserted=0 skipped=1
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='nyt_tech' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='nature' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='statnews' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='utility_dive' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub HVAC (hvac OR heat-pump OR refrigeration topic:hvac pushed:>2025-01-01)
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_hvac' inserted=1 skipped=0
+2026-07-13T09:34:49 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub BIM (BIM OR ifc OR openstudio topic:construction pushed:>2025-01-01)
+2026-07-13T09:34:50 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_bim' inserted=1 skipped=0
+2026-07-13T09:34:50 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub IoT (iot OR plc OR industry-4.0 topic:iot pushed:>2025-01-01)
+2026-07-13T09:34:51 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_iot' inserted=1 skipped=0
+2026-07-13T09:34:51 INFO [src.intel_bot.jobs.ingest_job] event=ingest_complete inserted=11 skipped=5 sources_ok=16 sources_failed=5
+2026-07-13T09:36:23 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:36:23 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.constructiondive.com/feeds/news/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:23 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://venturebeat.com/feed/: 7 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:23 INFO [src.intel_bot.ingest.rss_fetcher] Fetched http://feeds.feedburner.com/TechCrunch/: 21 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:23 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.technologyreview.com/feed/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:23 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:36:23 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.theverge.com/rss/index.xml: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:24 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:36:24 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.wired.com/feed/rss: 50 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:24 INFO [src.intel_bot.ingest.rss_fetcher] Fetched http://feeds.arstechnica.com/arstechnica/index: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:25 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://news.ycombinator.com/rss: 30 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:25 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://research.google/blog/rss/: 100 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:25 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:25 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:36:26 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.statnews.com/feed/: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:26 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.utilitydive.com/feeds/news/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:26 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.nature.com/nature.rss: 75 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:26 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:36:26 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:36:27 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:36:27 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:36:27 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:36:27 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.achrnews.com/rss/articles
+2026-07-13T09:36:27 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:36:28 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:36:28 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:36:29 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:29 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36)
+2026-07-13T09:36:30 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:36:30 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36)
+2026-07-13T09:36:31 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.enr.com/rss/informationtech
+2026-07-13T09:36:31 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:36:33 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='construction_dive' inserted=9 skipped=1
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='venturebeat' inserted=0 skipped=7
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='techcrunch' inserted=0 skipped=21
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='mit_tech_review' inserted=9 skipped=1
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='the_verge' inserted=9 skipped=1
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='wired' inserted=49 skipped=1
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='ars_technica' inserted=0 skipped=20
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='hacker_news' inserted=5 skipped=25
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='google_ai' inserted=0 skipped=100
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='nyt_tech' inserted=19 skipped=1
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='statnews' inserted=19 skipped=1
+2026-07-13T09:36:33 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='utility_dive' inserted=9 skipped=1
+2026-07-13T09:36:34 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='nature' inserted=74 skipped=1
+2026-07-13T09:36:34 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub HVAC (hvac OR heat-pump OR refrigeration topic:hvac pushed:>2025-01-01)
+2026-07-13T09:36:35 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_hvac' inserted=4 skipped=1
+2026-07-13T09:36:35 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub BIM (BIM OR ifc OR openstudio topic:construction pushed:>2025-01-01)
+2026-07-13T09:36:36 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_bim' inserted=4 skipped=1
+2026-07-13T09:36:36 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub IoT (iot OR plc OR industry-4.0 topic:iot pushed:>2025-01-01)
+2026-07-13T09:36:37 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_iot' inserted=4 skipped=1
+2026-07-13T09:36:37 INFO [src.intel_bot.jobs.ingest_job] event=ingest_complete inserted=214 skipped=184 sources_ok=16 sources_failed=5
+2026-07-13T09:36:55 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:36:55 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.constructiondive.com/feeds/news/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:55 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.technologyreview.com/feed/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:55 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://venturebeat.com/feed/: 7 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:56 INFO [src.intel_bot.ingest.rss_fetcher] Fetched http://feeds.arstechnica.com/arstechnica/index: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:56 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:36:56 INFO [src.intel_bot.ingest.rss_fetcher] Fetched http://feeds.feedburner.com/TechCrunch/: 21 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:56 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.theverge.com/rss/index.xml: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:56 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.wired.com/feed/rss: 50 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:57 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.achrnews.com/rss/articles (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.achrnews.com/rss/articles
+2026-07-13T09:36:57 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:57 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:36:57 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://research.google/blog/rss/: 100 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:57 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://news.ycombinator.com/rss: 30 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:58 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.nature.com/nature.rss: 75 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:58 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.statnews.com/feed/: 20 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:58 INFO [src.intel_bot.ingest.rss_fetcher] Fetched https://www.utilitydive.com/feeds/news/: 10 entries (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:58 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:36:58 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:36:59 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=industry-intel-bot/0.1 (+https://example.com/contact), attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:36:59 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:36:59 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=industry-intel-bot/0.1 (+https://example.com/contact))
+2026-07-13T09:36:59 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://spectrum.ieee.org/feeds/rss.xml (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 404 Client Error: Not Found for url: https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:36:59 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:37:00 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.enr.com/rss/informationtech (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.enr.com/rss/informationtech
+2026-07-13T09:37:00 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.achrnews.com/rss/articles
+2026-07-13T09:37:00 WARNING [src.intel_bot.ingest.rss_fetcher] Fetch failed https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36, attempt=1): 403 Client Error: Forbidden for url: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:37:02 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36)
+2026-07-13T09:37:02 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://spectrum.ieee.org/feeds/rss.xml
+2026-07-13T09:37:03 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.enr.com/rss/informationtech
+2026-07-13T09:37:03 WARNING [src.intel_bot.ingest.rss_fetcher] Feed parsed but empty: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910 (UA=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36)
+2026-07-13T09:37:03 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
+2026-07-13T09:37:06 ERROR [src.intel_bot.ingest.rss_fetcher] All fetch attempts failed for https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='construction_dive' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='mit_tech_review' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='venturebeat' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='ars_technica' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='techcrunch' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='the_verge' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='wired' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='nyt_tech' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='google_ai' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='hacker_news' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='nature' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='statnews' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='utility_dive' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub HVAC (hvac OR heat-pump OR refrigeration topic:hvac pushed:>2025-01-01)
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_hvac' inserted=0 skipped=1
+2026-07-13T09:37:06 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub BIM (BIM OR ifc OR openstudio topic:construction pushed:>2025-01-01)
+2026-07-13T09:37:07 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_bim' inserted=0 skipped=1
+2026-07-13T09:37:07 INFO [src.intel_bot.jobs.ingest_job] GitHub search: GitHub IoT (iot OR plc OR industry-4.0 topic:iot pushed:>2025-01-01)
+2026-07-13T09:37:08 INFO [src.intel_bot.jobs.ingest_job] event=source_ingest_complete source='github_iot' inserted=0 skipped=1
+2026-07-13T09:37:08 INFO [src.intel_bot.jobs.ingest_job] event=ingest_complete inserted=0 skipped=16 sources_ok=16 sources_failed=5
+2026-07-13T10:22:49 INFO [src.intel_bot.jobs.filter_job] Filtering 100 raw articles
+2026-07-13T10:22:49 WARNING [src.intel_bot.filter.embedding_filter] sentence-transformers not installed; using bag-of-words fallback (pip install sentence-transformers for bge-small-en-v1.5)
+2026-07-13T10:22:49 INFO [src.intel_bot.jobs.filter_job] event=filter_complete processed=100 filtered=7 rejected=93
+2026-07-13T10:24:00 INFO [src.intel_bot.jobs.filter_job] Filtering 500 raw articles
+2026-07-13T10:24:00 WARNING [src.intel_bot.filter.embedding_filter] sentence-transformers not installed; using bag-of-words fallback (pip install sentence-transformers for bge-small-en-v1.5)
+2026-07-13T10:24:00 INFO [src.intel_bot.jobs.filter_job] event=filter_complete processed=500 filtered=13 rejected=487
+2026-07-13T10:24:18 INFO [src.intel_bot.jobs.filter_job] Filtering 16 raw articles
+2026-07-13T10:24:18 WARNING [src.intel_bot.filter.embedding_filter] sentence-transformers not installed; using bag-of-words fallback (pip install sentence-transformers for bge-small-en-v1.5)
+2026-07-13T10:24:18 INFO [src.intel_bot.jobs.filter_job] event=filter_complete processed=16 filtered=4 rejected=12

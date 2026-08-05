@@ -1,0 +1,22 @@
+# ingest settings
+ingest:
+  timeout_seconds: 30
+  retries: 3
+  max_concurrent_requests: 5
+  github_per_source: 5
+
+# filter settings (PRODUCTION_PLAN §7.3, §9)
+filter:
+  keywords_path: config/keywords.yaml
+  interest_profile_path: config/interest_profile.txt
+  embedding_threshold: 0.35
+  embedding_fallback_threshold: 0.15
+  embedding_model: BAAI/bge-small-en-v1.5
+  batch_size: 500
+
+# publish window (used by publish job later)
+publish:
+  window_hours: 48
+  archive_days: 7
+
+timezone: Asia/Ho_Chi_Minh

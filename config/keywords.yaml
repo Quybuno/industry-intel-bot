@@ -1,0 +1,77 @@
+# Keyword groups for industry filter (PRODUCTION_PLAN §9.1)
+groups:
+  ai:
+    - artificial intelligence
+    - machine learning
+    - deep learning
+    - LLM
+    - large language model
+    - generative AI
+    - computer vision
+    - neural network
+    - GPT
+    - transformer
+  construction:
+    - construction
+    - building
+    - BIM
+    - infrastructure
+    - jobsite
+    - contractor
+    - retrofit
+    - civil engineering
+    - building materials
+  hvac:
+    - HVAC
+    - heat pump
+    - refrigeration
+    - air conditioning
+    - chiller
+    - VRF
+    - ventilation
+    - cooling system
+    - heating system
+  manufacturing:
+    - manufacturing
+    - factory
+    - Industry 4.0
+    - PLC
+    - OT
+    - supply chain
+    - industrial automation
+    - production line
+    - smart factory
+  iot:
+    - IoT
+    - internet of things
+    - sensor
+    - edge computing
+    - digital twin
+    - building automation
+    - SCADA
+    - MQTT
+    - embedded system
+  tech:
+    - software
+    - startup
+    - cloud
+    - cybersecurity
+    - open source
+    - developer
+    - API
+    - data center
+  energy:
+    - renewable energy
+    - solar
+    - wind power
+    - grid
+    - utility
+    - decarbonization
+    - battery storage
+  health:
+    - healthcare
+    - biotech
+    - clinical
+    - pharma
+    - medical device
+    - health tech
