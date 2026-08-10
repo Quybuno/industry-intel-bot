@@ -12,7 +12,10 @@ from src.intel_bot.db.repositories import ArticleRepository, JobRunRepository, S
 from src.intel_bot.db.session import ensure_tables, get_session
 from src.intel_bot.ingest.deduplicator import check_duplicate
 from src.intel_bot.ingest.github_fetcher import parse_github_repos, search_repositories
-from src.intel_bot.ingest.rss_fetcher import fetch_feed, parse_rss_entries
+from src.intel_bot.ingest.github_trending_fetcher import fetch_github_trending, parse_github_trending
+from src.intel_bot.ingest.reddit_fetcher import fetch_reddit_feed, parse_reddit_entries
+from src.intel_bot.ingest.legacy_rss import fetch_feed_legacy, parse_rss_entries_legacy
+from src.intel_bot.ingest.source_defaults import default_rss_sources
 from src.intel_bot.observability.logging import log_event, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -30,20 +33,66 @@ class IngestResult:
 def load_ingest_config(config_path: str = 'config/sources.yaml', app_path: str = 'config/app.yaml') -> tuple[list[dict], dict]:
     sources_data = load_yaml(config_path)
     app_data = load_yaml(app_path)
-    sources = [s for s in sources_data.get('sources', []) if s.get('enabled', True)]
+    configured_sources = [s for s in sources_data.get('sources', []) if s.get('enabled', True)]
+    configured_non_rss = [s for s in configured_sources if s.get('type') != 'rss']
+    sources = [*default_rss_sources(), *configured_non_rss]
     ingest_cfg = app_data.get('ingest', {})
     return sources, ingest_cfg
 
 
-def _fetch_rss_source(source: dict[str, Any], ingest_cfg: dict) -> tuple[dict, Optional[list[dict]], Optional[str]]:
+def _fetch_feed_source(
+    source: dict[str, Any],
+    ingest_cfg: dict,
+    *,
+    source_type: str,
+) -> tuple[dict, Optional[list[dict]], Optional[str]]:
     """HTTP-only fetch for parallel phase."""
     timeout = ingest_cfg.get('timeout_seconds', 30)
     retries = ingest_cfg.get('retries', 3)
     url = source.get('url_or_query')
-    feed = fetch_feed(url, timeout=timeout, retries=retries)
+    feed = fetch_feed_legacy(url, timeout=timeout, retries=retries)
     if not feed:
         return source, None, 'fetch_failed'
-    return source, parse_rss_entries(feed, source), None
+    return source, parse_rss_entries_legacy(feed, source, source_type=source_type), None
+
+
+def _fetch_reddit_source(source: dict[str, Any], ingest_cfg: dict) -> tuple[dict, Optional[list[dict]], Optional[str]]:
+    """HTTP-only Reddit fetch for parallel phase."""
+    feed = fetch_reddit_feed(
+        source.get('url_or_query', ''),
+        limit=ingest_cfg.get('reddit_per_source', 25),
+        timeout=ingest_cfg.get('timeout_seconds', 30),
+        retries=ingest_cfg.get('retries', 3),
+    )
+    if not feed:
+        return source, None, 'fetch_failed'
+    return source, parse_reddit_entries(feed, source), None
+
+
+def _fetch_github_trending_source(source: dict[str, Any], ingest_cfg: dict) -> tuple[dict, Optional[list[dict]], Optional[str]]:
+    """HTTP-only GitHub Trending fetch for parallel phase."""
+    try:
+        html = fetch_github_trending(
+            source.get('url_or_query', ''),
+            timeout=ingest_cfg.get('timeout_seconds', 30),
+            retries=ingest_cfg.get('retries', 3),
+        )
+        return source, parse_github_trending(html, source), None
+    except Exception as exc:
+        logger.warning('GitHub Trending fetch failed for %s: %s', source.get('id'), exc)
+        return source, None, str(exc)
+
+
+def _fetch_extract_source(source: dict[str, Any], ingest_cfg: dict) -> tuple[dict, Optional[list[dict]], Optional[str]]:
+    """Dispatch one configured source to the matching extractor."""
+    source_type = source.get('type')
+    if source_type in {'rss', 'google_news'}:
+        return _fetch_feed_source(source, ingest_cfg, source_type=source_type)
+    if source_type == 'reddit':
+        return _fetch_reddit_source(source, ingest_cfg)
+    if source_type == 'github_trending':
+        return _fetch_github_trending_source(source, ingest_cfg)
+    return source, None, f'unsupported_source_type:{source_type}'
 
 
 def _ingest_articles(
@@ -103,7 +152,10 @@ def run_ingest_job(
     per_github = ingest_cfg.get('github_per_source', 5)
 
     result = IngestResult()
-    rss_sources = [s for s in sources if s.get('type') == 'rss']
+    parallel_sources = [
+        s for s in sources
+        if s.get('type') in {'rss', 'google_news', 'reddit', 'github_trending'}
+    ]
     github_sources = [s for s in sources if s.get('type') == 'github']
 
     with get_session() as session:
@@ -113,22 +165,22 @@ def run_ingest_job(
         session.commit()
 
     try:
-        # Phase 1: parallel RSS fetch (HTTP only)
-        fetched_rss: list[tuple[dict, Optional[list[dict]], Optional[str]]] = []
+        # Phase 1: parallel HTTP extract (RSS, Google News, Reddit, GitHub Trending)
+        fetched_sources: list[tuple[dict, Optional[list[dict]], Optional[str]]] = []
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {
-                pool.submit(_fetch_rss_source, src, ingest_cfg): src
-                for src in rss_sources
+                pool.submit(_fetch_extract_source, src, ingest_cfg): src
+                for src in parallel_sources
             }
             for future in as_completed(futures):
-                fetched_rss.append(future.result())
+                fetched_sources.append(future.result())
 
         # Phase 2: DB writes (sequential, one session)
         with get_session() as session:
             health_repo = SourceHealthRepository(session)
             job_repo = JobRunRepository(session)
 
-            for source, articles, error in fetched_rss:
+            for source, articles, error in fetched_sources:
                 sid = source['id']
                 name = source.get('name', sid)
                 if error or not articles:
@@ -180,7 +232,7 @@ def run_ingest_job(
                 session.commit()
 
             # Finalize job_run
-            total_sources = len(rss_sources) + len(github_sources)
+            total_sources = len(parallel_sources) + len(github_sources)
             if result.sources_failed == 0:
                 status = 'success'
             elif result.sources_ok > 0:
@@ -196,6 +248,7 @@ def run_ingest_job(
                 items_failed=result.sources_failed,
                 error_summary='; '.join(result.errors[:5]) if result.errors else None,
                 metadata={
+                    'sources_total': total_sources,
                     'sources_ok': result.sources_ok,
                     'sources_failed': result.sources_failed,
                     'skipped_duplicates': result.skipped,

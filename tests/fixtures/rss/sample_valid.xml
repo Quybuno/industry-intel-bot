@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Fixture Feed — Industry Intel Bot Tests</title>
+    <link>https://fixture.test/</link>
+    <description>Fixture RSS feed dùng cho integration test, không gọi mạng thật.</description>
+
+    <item>
+      <title>Bài test số 1: AI trong sản xuất</title>
+      <link>https://fixture.test/articles/bai-test-so-1</link>
+      <guid>https://fixture.test/articles/bai-test-so-1</guid>
+      <description>Snippet tóm tắt cho bài test số 1.</description>
+      <pubDate>Mon, 10 Aug 2026 01:00:00 GMT</pubDate>
+    </item>
+
+    <item>
+      <title>Bài test số 2: HVAC thông minh</title>
+      <link>https://fixture.test/articles/bai-test-so-2</link>
+      <guid>https://fixture.test/articles/bai-test-so-2</guid>
+      <description>Snippet tóm tắt cho bài test số 2.</description>
+      <pubDate>Mon, 10 Aug 2026 02:00:00 GMT</pubDate>
+    </item>
+
+    <item>
+      <title>Bài test số 3: IoT trong xây dựng</title>
+      <link>https://fixture.test/articles/bai-test-so-3</link>
+      <guid>https://fixture.test/articles/bai-test-so-3</guid>
+      <description>Snippet tóm tắt cho bài test số 3.</description>
+      <pubDate>Mon, 10 Aug 2026 03:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

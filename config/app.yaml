@@ -4,6 +4,10 @@ ingest:
   retries: 3
   max_concurrent_requests: 5
   github_per_source: 5
+  reddit_per_source: 25
+  # Chuỗi User-Agent gửi kèm mọi request RSS — định danh rõ bot + email liên hệ,
+  # để chủ nguồn biết ai đang fetch và liên hệ được nếu cần (PRODUCTION_PLAN §8.1).
+  user_agent: "industry-intel-bot/0.4 (+mailto:tiencuong.bsr@gmail.com)"
 
 # filter settings (PRODUCTION_PLAN §7.3, §9)
 filter:

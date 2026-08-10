@@ -1,162 +1,64 @@
+# Danh sách nguồn RSS cho task 0.4 (RSS fetcher → bronze.raw_articles).
+# Mỗi URL đã được kiểm chứng thật bằng httpx + feedparser (UA thật của bot,
+# không giả trình duyệt) trước khi đưa vào đây: HTTP 200, parse được,
+# có ít nhất 1 entry, có trường ngày (published/updated).
+#
+# tier: 1 = báo chuyên ngành đầu ngành (uy tín cao nhất trong lĩnh vực),
+#       2 = nguồn chuyên ngành/độc lập uy tín nhưng phạm vi hẹp hơn hoặc quy mô nhỏ hơn,
+#       3 = dự trữ cho nguồn tổng hợp/quy mô nhỏ hơn nữa (chưa dùng ở batch này).
 sources:
-  - id: venturebeat
-    name: VentureBeat
-    type: rss
-    url_or_query: https://venturebeat.com/feed/
-    enabled: true
-    tier: 7
-    industries: [ai, tech]
-  - id: mit_tech_review
-    name: MIT Technology Review
-    type: rss
-    url_or_query: https://www.technologyreview.com/feed/
-    enabled: true
-    tier: 9
-    industries: [ai, tech]
-  - id: construction_dive
-    name: Construction Dive
-    type: rss
-    url_or_query: https://www.constructiondive.com/feeds/news/
-    enabled: true
-    tier: 8
-    industries: [construction]
-  - id: achr_news
-    name: ACHR News
-    type: rss
-    url_or_query: https://www.achrnews.com/rss/articles
-    enabled: true
-    tier: 8
-    industries: [hvac]
-  - id: techcrunch
-    name: TechCrunch
-    type: rss
-    url_or_query: http://feeds.feedburner.com/TechCrunch/
-    enabled: true
-    tier: 7
-    industries: [ai, tech]
-  - id: the_verge
-    name: The Verge
-    type: rss
-    url_or_query: https://www.theverge.com/rss/index.xml
-    enabled: true
-    tier: 6
-    industries: [tech]
-  - id: wired
-    name: Wired
-    type: rss
-    url_or_query: https://www.wired.com/feed/rss
-    enabled: true
-    tier: 7
-    industries: [tech]
-  - id: ars_technica
-    name: Ars Technica
-    type: rss
-    url_or_query: http://feeds.arstechnica.com/arstechnica/index
-    enabled: true
-    tier: 7
-    industries: [tech]
-  - id: hacker_news
-    name: Hacker News
-    type: rss
-    url_or_query: https://news.ycombinator.com/rss
-    enabled: true
-    tier: 5
-    industries: [tech]
-  - id: google_ai
-    name: Google AI Blog
-    type: rss
-    url_or_query: https://research.google/blog/rss/
-    enabled: true
-    tier: 8
+  - source_id: artificial_intelligence_news
+    url: https://www.artificialintelligence-news.com/feed/
+    domain: artificialintelligence-news.com
+    tier: 1
     industries: [ai]
-  - id: ieee_spectrum
-    name: IEEE Spectrum
-    type: rss
-    url_or_query: https://spectrum.ieee.org/feeds/rss.xml
-    enabled: true
-    tier: 9
-    industries: [tech, iot]
-  - id: reuters_tech
-    name: Reuters Technology
-    type: rss
-    url_or_query: https://www.reuters.com/technology/rss
-    enabled: false  # Tắt ở MVP
-    tier: 9
-    industries: [tech]
-  - id: nyt_tech
-    name: NYT Technology
-    type: rss
-    url_or_query: https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
-    enabled: true
-    tier: 8
-    industries: [tech]
-  - id: nature
-    name: Nature News
-    type: rss
-    url_or_query: https://www.nature.com/nature.rss
-    enabled: true
-    tier: 9
-    industries: [science]
-  - id: statnews
-    name: STAT News
-    type: rss
-    url_or_query: https://www.statnews.com/feed/
-    enabled: true
-    tier: 7
-    industries: [health]
-  - id: utility_dive
-    name: Utility Dive
-    type: rss
-    url_or_query: https://www.utilitydive.com/feeds/news/
-    enabled: true
-    tier: 7
-    industries: [energy]
-  - id: enr
-    name: ENR
-    type: rss
-    url_or_query: https://www.enr.com/rss/informationtech
-    enabled: true
-    tier: 7
+    is_enabled: true
+
+  - source_id: techcrunch_ai
+    url: https://techcrunch.com/category/artificial-intelligence/feed/
+    domain: techcrunch.com
+    tier: 2
+    industries: [ai, tech]
+    is_enabled: true
+
+  - source_id: construction_dive
+    url: https://www.constructiondive.com/feeds/news/
+    domain: constructiondive.com
+    tier: 1
     industries: [construction]
-  - id: manufacturing_net
-    name: Manufacturing.net
-    type: rss
-    url_or_query: https://www.manufacturing.net/home/rss/21532454/manufacturingnet-blogs
-    enabled: true
-    tier: 7
+    is_enabled: true
+
+  - source_id: construction_enquirer
+    url: https://www.constructionenquirer.com/feed/
+    domain: constructionenquirer.com
+    tier: 2
+    industries: [construction]
+    is_enabled: true
+
+  - source_id: manufacturing_dive
+    url: https://www.manufacturingdive.com/feeds/news/
+    domain: manufacturingdive.com
+    tier: 1
     industries: [manufacturing]
-  - id: data_gov
-    name: Data.gov
-    type: rss
-    url_or_query: https://www.data.gov/rss
-    enabled: false  # Tắt ở MVP
-    tier: 5
-    industries: [data]
-  - id: cnbc_tech
-    name: CNBC Tech
-    type: rss
-    url_or_query: https://search.cnbc.com/rs/search/combinedseo.xml?partnerId=401&id=19854910
-    enabled: true
-    tier: 6
-    industries: [tech]
-  - id: github_hvac
-    name: GitHub HVAC
-    type: github
-    url_or_query: "hvac OR heat-pump OR refrigeration topic:hvac pushed:>2025-01-01"
-    enabled: true
-    tier: 6
+    is_enabled: true
+
+  - source_id: cooling_post
+    url: https://www.coolingpost.com/feed/
+    domain: coolingpost.com
+    tier: 1
     industries: [hvac]
-  - id: github_bim
-    name: GitHub BIM
-    type: github
-    url_or_query: "BIM OR ifc OR openstudio topic:construction pushed:>2025-01-01"
-    enabled: true
-    tier: 6
-    industries: [construction]
-  - id: github_iot
-    name: GitHub IoT
-    type: github
-    url_or_query: "iot OR plc OR industry-4.0 topic:iot pushed:>2025-01-01"
-    enabled: true
-    tier: 6
-    industries: [iot, manufacturing]
+    is_enabled: true
+
+  - source_id: iot_analytics
+    url: https://iot-analytics.com/feed/
+    domain: iot-analytics.com
+    tier: 1
+    industries: [iot]
+    is_enabled: true
+
+  - source_id: stacey_on_iot
+    url: https://staceyoniot.com/feed/
+    domain: staceyoniot.com
+    tier: 2
+    industries: [iot]
+    is_enabled: true

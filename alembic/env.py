@@ -1,35 +1,54 @@
-from logging.config import fileConfig
+"""Alembic env — không dùng ORM. Mọi migration viết bằng Alembic op / SQLAlchemy Core,
+nên không có metadata tự động để autogenerate (target_metadata = None, luôn viết tay).
+"""
+
 import os
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from logging.config import fileConfig
+
+from dotenv import load_dotenv
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
-config = context.config
+# Nạp .env ở thư mục gốc repo (nếu có) trước khi đọc DATABASE_URL.
+load_dotenv()
 
-# Interpret the config file for Python logging.
+config = context.config
 fileConfig(config.config_file_name)
 
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.intel_bot.db.models import Base
-
-target_metadata = Base.metadata
+# Không dùng ORM: không autogenerate, mọi bảng viết tay trong từng migration.
+target_metadata = None
 
 
-def run_migrations_offline():
-    url = config.get_main_option('sqlalchemy.url') or os.getenv('DATABASE_URL')
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
+def get_database_url() -> str:
+    """Đọc DATABASE_URL bắt buộc từ môi trường — không fallback về SQLite hay giá trị đoán."""
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError(
+            "Thiếu biến môi trường DATABASE_URL. Đặt trong .env, ví dụ:\n"
+            "  DATABASE_URL=postgresql+psycopg://intel:intel@localhost:5432/intel_bot"
+        )
+    return url
+
+
+def run_migrations_offline() -> None:
+    """Sinh SQL mà không cần kết nối DB thật (`alembic upgrade head --sql`)."""
+    context.configure(
+        url=get_database_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
     with context.begin_transaction():
         context.run_migrations()
 
 
-def run_migrations_online():
-    configuration = config.get_section(config.config_ini_section)
-    configuration['sqlalchemy.url'] = os.getenv('DATABASE_URL', configuration.get('sqlalchemy.url', 'sqlite:///data/dev.db'))
-    connectable = engine_from_config(configuration, prefix='sqlalchemy.', poolclass=pool.NullPool)
+def run_migrations_online() -> None:
+    """Kết nối Postgres thật và chạy migration."""
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = get_database_url()
+    connectable = engine_from_config(configuration, prefix="sqlalchemy.", poolclass=pool.NullPool)
+
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():

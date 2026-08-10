@@ -9,5 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
+# Secrets cục bộ — không commit
+.env
+
 data/*.db
 logs/*.log
