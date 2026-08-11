@@ -15,6 +15,32 @@ providers:
         tier: cloud
     max_per_run: 10
 
+  # Xác minh trực tiếp từ https://api-docs.deepseek.com/quick_start/pricing/ ngày 2026-08-11.
+  # deepseek-chat/deepseek-reasoner đã bị retire 24/07/2026, thay bằng deepseek-v4-*.
+  # DeepSeek KHÔNG có Batch API (đã xác minh qua tài liệu chính thức, không có trang batch
+  # nào) — provider gọi đồng bộ (/chat/completions), batch_discount=0 vì không có gì để
+  # chiết khấu. Giá có cảnh báo "sẽ tăng đáng kể trong thời gian tới" — kiểm tra lại trang
+  # pricing trước khi dùng lâu dài, đừng coi các số dưới đây là cố định.
+  - name: deepseek
+    type: cloud
+    env_var: DEEPSEEK_API_KEY
+    api_base_url: https://api.deepseek.com
+    batch_discount: 0.0
+    models:
+      - id: deepseek-v4-flash
+        tier: fast
+        pricing:
+          input_cache_hit_usd_per_1m: "0.0028"
+          input_cache_miss_usd_per_1m: "0.14"
+          output_usd_per_1m: "0.28"
+      - id: deepseek-v4-pro
+        tier: deep
+        pricing:
+          input_cache_hit_usd_per_1m: "0.003625"
+          input_cache_miss_usd_per_1m: "0.435"
+          output_usd_per_1m: "0.87"
+    max_per_run: 10
+
 routing:
   default_tier: fast
   deep_threshold: 7

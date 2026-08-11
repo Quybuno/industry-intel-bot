@@ -9,6 +9,10 @@ ingest:
   # để chủ nguồn biết ai đang fetch và liên hệ được nếu cần (PRODUCTION_PLAN §8.1).
   user_agent: "industry-intel-bot/0.4 (+mailto:tiencuong.bsr@gmail.com)"
 
+# normalize settings (PRODUCTION_PLAN §8.2 — quy tắc cold start)
+normalize:
+  max_article_age_days: 7
+
 # filter settings (PRODUCTION_PLAN §7.3, §9)
 filter:
   keywords_path: config/keywords.yaml
@@ -17,6 +21,25 @@ filter:
   embedding_fallback_threshold: 0.15
   embedding_model: BAAI/bge-small-en-v1.5
   batch_size: 500
+  # Filter tối thiểu Phase 0-1 (PRODUCTION_PLAN §9.2) — KHÔNG embedding.
+  min_snippet_chars: 80
+  # Trần cứng số bài qua LLM/ngày (PRODUCTION_PLAN §21.2). Mặc định = khối lượng ước tính
+  # thật của toàn bộ nguồn hiện có (~200 bài/ngày, §9.1/§21.1) — trần đúng bằng khối lượng
+  # bình thường, chỉ chặn khi có bất thường, không cắt bớt hoạt động thường ngày.
+  max_articles_per_day: 200
+
+# score settings (PRODUCTION_PLAN §10.5, §21.1-21.2)
+score:
+  # Trần chi phí USD/ngày — vượt thì dừng chấm, giữ bài ở status 'eligible' để hôm sau
+  # chấm tiếp (§10.5). Giá DeepSeek rất rẻ (xem models.yaml) nên 1.00 USD/ngày là trần an
+  # toàn rộng rãi cho ~200 bài/ngày — chỉnh lại nếu đổi provider/model đắt hơn.
+  daily_budget_usd: "1.00"
+  # Tóm tắt chỉ sinh cho top-K bài theo composite score — phần output tốn nhất, chỉ áp
+  # dụng cho số ít bài nổi bật nhất (§21.2, số 15 lấy nguyên từ plan).
+  top_k_summaries: 15
+  # Số bài mỗi batch gọi provider — dùng khi provider không có 'max_per_run' riêng trong
+  # models.yaml (vd. mock).
+  default_batch_size: 10
 
 # publish window (used by publish job later)
 publish:

@@ -1,4 +1,5 @@
 """GitHub repository search fetcher — no DB side effects."""
+
 from __future__ import annotations
 
 import logging
@@ -8,16 +9,15 @@ from typing import Any, Optional
 import requests
 
 from src.intel_bot.config import settings
-from src.intel_bot.ingest.normalizer import (
-    canonicalize_url,
-    compute_content_hash,
-    normalize_title,
+from src.intel_bot.ingest.legacy_normalizer import (
+    compute_content_hash_legacy,
     parse_github_pushed_at,
 )
+from src.intel_bot.ingest.normalizer import canonicalize_url, normalize_title
 
 logger = logging.getLogger(__name__)
 
-GITHUB_API = 'https://api.github.com'
+GITHUB_API = "https://api.github.com"
 
 
 def search_repositories(
@@ -28,11 +28,11 @@ def search_repositories(
     retries: int = 3,
 ) -> list[dict[str, Any]]:
     """Search GitHub repos with retry."""
-    headers: dict[str, str] = {'Accept': 'application/vnd.github+json'}
+    headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
     if settings.GITHUB_TOKEN:
-        headers['Authorization'] = f'Bearer {settings.GITHUB_TOKEN}'
+        headers["Authorization"] = f"Bearer {settings.GITHUB_TOKEN}"
 
-    params = {'q': query, 'sort': 'updated', 'order': 'desc', 'per_page': per_page}
+    params = {"q": query, "sort": "updated", "order": "desc", "per_page": per_page}
     last_error: Optional[Exception] = None
 
     for attempt in range(retries):
@@ -40,18 +40,18 @@ def search_repositories(
             time.sleep(2 ** (attempt - 1))
         try:
             r = requests.get(
-                f'{GITHUB_API}/search/repositories',
+                f"{GITHUB_API}/search/repositories",
                 headers=headers,
                 params=params,
                 timeout=timeout,
             )
             r.raise_for_status()
-            return r.json().get('items', [])
+            return r.json().get("items", [])
         except Exception as exc:
             last_error = exc
-            logger.warning('GitHub search failed (attempt=%d): %s', attempt + 1, exc)
+            logger.warning("GitHub search failed (attempt=%d): %s", attempt + 1, exc)
 
-    raise RuntimeError(f'GitHub search failed for query={query!r}: {last_error}')
+    raise RuntimeError(f"GitHub search failed for query={query!r}: {last_error}")
 
 
 def parse_github_repos(
@@ -62,26 +62,28 @@ def parse_github_repos(
     articles: list[dict[str, Any]] = []
 
     for repo in repos:
-        url = repo.get('html_url')
+        url = repo.get("html_url")
         if not url:
             continue
 
-        title = normalize_title(repo.get('full_name') or repo.get('name', ''))
-        desc = repo.get('description') or ''
-        stars = repo.get('stargazers_count', 0)
-        snippet = f'{desc} (⭐ {stars})' if desc else f'⭐ {stars} stars'
+        title = normalize_title(repo.get("full_name") or repo.get("name", ""))
+        desc = repo.get("description") or ""
+        stars = repo.get("stargazers_count", 0)
+        snippet = f"{desc} (⭐ {stars})" if desc else f"⭐ {stars} stars"
         canonical = canonicalize_url(url)
-        content_hash = compute_content_hash(title, canonical)
+        content_hash = compute_content_hash_legacy(title, canonical)
 
-        articles.append({
-            'canonical_url': canonical,
-            'content_hash': content_hash,
-            'source_id': source['id'],
-            'source_type': 'github',
-            'title': title,
-            'snippet': snippet[:4000],
-            'published_at': parse_github_pushed_at(repo.get('pushed_at')),
-            'author': (repo.get('owner') or {}).get('login'),
-        })
+        articles.append(
+            {
+                "canonical_url": canonical,
+                "content_hash": content_hash,
+                "source_id": source["id"],
+                "source_type": "github",
+                "title": title,
+                "snippet": snippet[:4000],
+                "published_at": parse_github_pushed_at(repo.get("pushed_at")),
+                "author": (repo.get("owner") or {}).get("login"),
+            }
+        )
 
     return articles

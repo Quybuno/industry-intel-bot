@@ -7,16 +7,18 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 import feedparser  # type: ignore[import-untyped]
 import requests
 
+from src.intel_bot.ingest.legacy_normalizer import (
+    compute_content_hash_legacy,
+    parse_rss_published,
+)
 from src.intel_bot.ingest.normalizer import (
     canonicalize_url,
-    compute_content_hash,
     normalize_title,
-    parse_rss_published,
     strip_html,
 )
 
@@ -30,7 +32,7 @@ _LEGACY_HEADERS = {
 
 def fetch_feed_legacy(
     url: str, *, timeout: int = 30, retries: int = 3
-) -> Optional[feedparser.FeedParserDict]:
+) -> feedparser.FeedParserDict | None:
     """Fetch + parse đồng bộ, retry đơn giản — bản sao rss_fetcher.py trước task 0.4."""
     headers = {"User-Agent": _LEGACY_UA, **_LEGACY_HEADERS}
     for attempt in range(retries):
@@ -39,7 +41,7 @@ def fetch_feed_legacy(
         try:
             r = requests.get(url, headers=headers, timeout=timeout)
             r.raise_for_status()
-        except Exception as exc:
+        except requests.RequestException as exc:
             logger.warning("Fetch failed %s: %s", url, exc)
             continue
         feed = feedparser.parse(r.content)
@@ -55,7 +57,7 @@ def parse_rss_entries_legacy(
     feed: feedparser.FeedParserDict,
     source: dict[str, Any],
     *,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     source_type: str = "rss",
 ) -> list[dict[str, Any]]:
     """Chuyển entry sang dict cho `Article` ORM cũ (canonical_url, content_hash, ...)."""
@@ -69,7 +71,7 @@ def parse_rss_entries_legacy(
         raw_snippet = entry.get("summary") or entry.get("description") or ""
         snippet = strip_html(raw_snippet)
         canonical = canonicalize_url(link)
-        content_hash = compute_content_hash(title, canonical)
+        content_hash = compute_content_hash_legacy(title, canonical)
         articles.append(
             {
                 "canonical_url": canonical,

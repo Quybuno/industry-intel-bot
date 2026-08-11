@@ -7,7 +7,7 @@ fetch/parse đồng bộ kiểu cũ được giữ lại ở `legacy_rss.py` đ�
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote_plus
 
 import feedparser  # type: ignore[import-untyped]
@@ -21,7 +21,7 @@ def build_reddit_rss_url(url_or_query: str, *, limit: int = 25) -> str:
     """Build a Reddit RSS URL from a subreddit/listing, search query, or full URL."""
     raw = (url_or_query or "").strip()
 
-    if raw.startswith("http://") or raw.startswith("https://"):
+    if raw.startswith(("http://", "https://")):
         if ".rss" in raw:
             separator = "&" if "?" in raw else "?"
             return f"{raw}{separator}limit={limit}"
@@ -31,8 +31,7 @@ def build_reddit_rss_url(url_or_query: str, *, limit: int = 25) -> str:
         joiner = "&" if query else ""
         return f"{rss_url}?{query}{joiner}limit={limit}"
 
-    if raw.startswith("r/"):
-        raw = raw[2:]
+    raw = raw.removeprefix("r/")
 
     if raw.startswith("search:"):
         query = quote_plus(raw.removeprefix("search:").strip())
@@ -50,7 +49,7 @@ def fetch_reddit_feed(
     limit: int = 25,
     timeout: int = 30,
     retries: int = 3,
-) -> Optional[feedparser.FeedParserDict]:
+) -> feedparser.FeedParserDict | None:
     """Fetch and parse Reddit RSS through the shared RSS fetcher."""
     return fetch_feed_legacy(
         build_reddit_rss_url(url_or_query, limit=limit),
@@ -63,7 +62,7 @@ def parse_reddit_entries(
     feed: feedparser.FeedParserDict,
     source: dict[str, Any],
     *,
-    limit: Optional[int] = None,
+    limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Convert Reddit RSS entries into normalized article dicts."""
     return parse_rss_entries_legacy(feed, source, limit=limit, source_type="reddit")

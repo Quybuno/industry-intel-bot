@@ -1,0 +1,31 @@
+# Rubric chấm điểm 4 tiêu chí (PRODUCTION_PLAN §10.6) — giữ cấu trúc rubric v1, mốc rõ 1/5/10.
+# depth vẫn được chấm và ghi lại để so sánh sau này, nhưng KHÔNG có trọng số ở gold layer
+# cho tới khi có full-text (§5.7) — không xoá tiêu chí, chỉ không dùng để xếp hạng.
+criteria:
+  credibility:
+    label: "Độ tin cậy"
+    anchors:
+      1: "Nguồn không rõ danh tính, không có tác giả, nội dung mang tính đồn đoán hoặc lời đồn."
+      5: "Nguồn có tên tuổi trong ngành nhưng không phải cơ quan báo chí hay tổ chức nghiên cứu chính thống."
+      10: "Nguồn là cơ quan báo chí uy tín, tổ chức nghiên cứu, hoặc công bố chính thức từ công ty/tổ chức lớn."
+
+  importance:
+    label: "Mức độ quan trọng"
+    anchors:
+      1: "Tin vụn vặt, chỉ ảnh hưởng tới phạm vi rất hẹp, không đáng chú ý với người đọc ngành."
+      5: "Tin có giá trị tham khảo cho người trong ngành nhưng không tạo thay đổi lớn ngay lập tức."
+      10: "Tin có thể thay đổi cách vận hành, công nghệ, hoặc chiến lược của nhiều doanh nghiệp trong ngành."
+
+  depth:
+    label: "Độ sâu nội dung"
+    anchors:
+      1: "Chỉ có tiêu đề hoặc một câu mô tả chung chung, không có dữ liệu/số liệu/phân tích cụ thể."
+      5: "Có một vài chi tiết kỹ thuật hoặc số liệu, nhưng không đi sâu phân tích."
+      10: "Có case study, số liệu cụ thể, phân tích kỹ thuật chi tiết đủ để hiểu bản chất vấn đề."
+
+  practicality:
+    label: "Tính ứng dụng thực tế"
+    anchors:
+      1: "Không thể áp dụng được vào thực tế vận hành ở Việt Nam / doanh nghiệp vừa và nhỏ (SME) hiện tại."
+      5: "Có thể tham khảo nhưng cần điều chỉnh đáng kể mới áp dụng được vào thực tế."
+      10: "Có thể áp dụng ngay hoặc gần như ngay vào thực tế vận hành, không cần điều kiện đặc biệt."

@@ -1,4 +1,21 @@
-# Keyword groups for industry filter (PRODUCTION_PLAN §9.1)
+# Blocklist cho filter tối thiểu Phase 0-1 (PRODUCTION_PLAN §9.2, task 0.6).
+# So khớp không phân biệt hoa/thường, theo ranh giới từ (word boundary), không khớp
+# chuỗi con — vd. "job posting" không khớp "jobs report".
+blocklist:
+  - webinar
+  - webinars
+  - sponsored
+  - sponsored content
+  - sponsored post
+  - job posting
+  - job postings
+  - job listing
+  - job listings
+  - press release
+  - press releases
+
+# Keyword groups cho filter industry kiểu v1 — KHÔNG dùng ở task 0.6, giữ lại cho
+# jobs/filter_job.py (legacy, không còn gọi từ CLI).
 groups:
   ai:
     - artificial intelligence

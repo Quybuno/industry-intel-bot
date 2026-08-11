@@ -13,7 +13,7 @@ import json
 import logging
 import time as time_module
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -117,7 +117,7 @@ def _json_safe(value: object) -> object:
     """Đệ quy chuyển các kiểu feedparser không JSON-hoá được (vd. `time.struct_time`)."""
     if isinstance(value, time_module.struct_time):
         return datetime.fromtimestamp(
-            calendar.timegm(value), tz=timezone.utc
+            calendar.timegm(value), tz=UTC
         ).isoformat()
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
@@ -306,7 +306,7 @@ async def fetch_all_sources(
         )
     outcomes = await asyncio.gather(*tasks)
 
-    fetched_at = datetime.now(tz=timezone.utc)
+    fetched_at = datetime.now(tz=UTC)
     for outcome in outcomes:
         source = outcome.source
 
