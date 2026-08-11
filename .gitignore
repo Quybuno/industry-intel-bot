@@ -14,3 +14,9 @@ wheels/
 
 data/*.db
 logs/*.log
+
+# dbt (task 0.10) — artifact sinh ra khi chạy, không phải source
+dbt_project/target/
+dbt_project/logs/
+dbt_project/dbt_packages/
+dbt_project/.user.yml

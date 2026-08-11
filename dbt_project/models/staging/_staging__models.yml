@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: stg_articles
+    description: >
+      Staging view của silver.articles — chỉ đổi tên cột và ép kiểu, không business logic
+      (PRODUCTION_PLAN §11.2).
+    columns:
+      - name: article_id
+        tests:
+          - not_null
+      - name: canonical_url
+        tests:
+          - unique
+          - not_null
+      - name: source_id
+        tests:
+          - not_null
+      - name: title
+        tests:
+          - not_null
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["ingested", "eligible", "excluded", "scored", "quarantined"]
+
+  - name: stg_article_scores
+    description: >
+      Staging view của silver.article_scores — chỉ đổi tên cột và ép kiểu (PRODUCTION_PLAN
+      §11.2).
+    columns:
+      - name: score_id
+        tests:
+          - unique
+          - not_null
+      - name: article_id
+        tests:
+          - not_null
+      - name: credibility
+        tests:
+          - not_null
+      - name: importance
+        tests:
+          - not_null
+      - name: depth
+        tests:
+          - not_null
+      - name: practicality
+        tests:
+          - not_null
+      - name: confidence
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["high", "medium", "low"]
+
+  - name: stg_sources
+    description: Staging view của seed_sources.csv (task 0.10 mục 5) — ép kiểu, tách mảng industries.
+    columns:
+      - name: source_id
+        tests:
+          - unique
+          - not_null
+      - name: tier
+        tests:
+          - not_null
+
+  - name: stg_article_summaries
+    description: >
+      Staging view của silver.article_summaries — chỉ đổi tên cột và ép kiểu (PRODUCTION_PLAN
+      §11.2). Bổ sung ở task 0.11 để mart_daily_digest join được tóm tắt tiếng Việt.
+    columns:
+      - name: summary_id
+        tests:
+          - unique
+          - not_null
+      - name: article_id
+        tests:
+          - not_null
+      - name: summary_vi
+        tests:
+          - not_null

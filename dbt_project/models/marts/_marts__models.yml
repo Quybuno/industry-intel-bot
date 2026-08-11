@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: dim_source
+    description: SCD2 nguồn tin, sinh từ snapshot snap_sources (PRODUCTION_PLAN §5.6).
+    columns:
+      - name: source_key
+        tests:
+          - unique
+          - not_null
+      - name: source_id
+        tests:
+          - not_null
+
+  - name: fct_article_score
+    description: >
+      Bảng fact composite score (PRODUCTION_PLAN §5.7), incremental merge theo
+      first_seen_date (§11.3).
+    columns:
+      - name: score_id
+        tests:
+          - unique
+          - not_null
+      - name: article_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_articles')
+                field: article_id
+      - name: composite_score
+        tests:
+          - not_null
+
+  - name: mart_daily_digest
+    description: >
+      Digest 48h, dedup theo content_hash, đã sort theo composite_score giảm dần, có cột
+      nhóm ngành, chỉ gồm bài ĐÃ có tóm tắt tiếng Việt (inner join summary) — đầu vào trực
+      tiếp của publish, không còn business logic ở Python (§5.8, §12.1).
+    columns:
+      - name: score_id
+        tests:
+          - unique
+          - not_null
+      - name: article_id
+        tests:
+          - not_null
+      - name: summary_vi
+        tests:
+          - not_null
+      - name: title
+        tests:
+          - not_null
+      - name: canonical_url
+        tests:
+          - not_null
+
+  - name: mart_pipeline_health
+    description: Một dòng một ngày — metrics vận hành (§5.8).
+    columns:
+      - name: pipeline_date
+        tests:
+          - unique
+          - not_null

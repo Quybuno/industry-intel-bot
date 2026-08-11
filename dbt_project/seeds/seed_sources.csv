@@ -1,0 +1,9 @@
+source_id,domain,tier,industries,is_enabled
+artificial_intelligence_news,artificialintelligence-news.com,1,ai,true
+techcrunch_ai,techcrunch.com,2,ai|tech,true
+construction_dive,constructiondive.com,1,construction,true
+construction_enquirer,constructionenquirer.com,2,construction,true
+manufacturing_dive,manufacturingdive.com,1,manufacturing,true
+cooling_post,coolingpost.com,1,hvac,true
+iot_analytics,iot-analytics.com,1,iot,true
+stacey_on_iot,staceyoniot.com,2,iot,true

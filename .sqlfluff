@@ -1,0 +1,17 @@
+[sqlfluff]
+dialect = postgres
+templater = dbt
+sql_file_exts = .sql
+# Comment nghiệp vụ bằng tiếng Việt (AGENTS.md mục 3) tự nhiên dài hơn 80 cột ASCII gốc của
+# sqlfluff. Nới giới hạn thay vì ngắt dòng comment giữa chừng — SQL thật (không phải
+# comment) vẫn được auto-format ngắn gọn bởi `sqlfluff fix`.
+max_line_length = 120
+
+[sqlfluff:templater:dbt]
+project_dir = dbt_project
+profiles_dir = dbt_project
+profile = intel_bot
+target = dev
+
+[sqlfluff:indentation]
+tab_space_size = 4

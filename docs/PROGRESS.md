@@ -20,8 +20,8 @@
 | 0.7 | LLM contract (Pydantic v2) + provider mock | ✅ | `src/intel_bot/contracts/llm_score.py` |
 | 0.8 | Provider cloud + cost tracking | ✅ | **DeepSeek, không phải Gemini** — xem mục 2.1 |
 | 0.9 | Quarantine + luồng lỗi | ✅ | Gộp chung với 0.8, cùng một lần giao việc. Migration 0004 |
-| 0.10 | dbt: staging + gold | ⬜ CHƯA LÀM | Xem mục 5 — có phụ thuộc ngược vào 0.8/0.9 |
-| 0.11 | Publish | ⬜ CHƯA LÀM | |
+| 0.10 | dbt: staging + gold | ✅ | Xem mục 5A — composite/dedup/SCD2 chạy thật trên DB dev |
+| 0.11 | Publish | ⬜ CHƯA LÀM | Xem mục 5B |
 
 Lệnh CLI đã có thật (chạy bằng `uv run python -m src.intel_bot.cli <lệnh>` — xem mục 3.4
 về lý do không dùng `uv run intel-bot`):
@@ -161,20 +161,87 @@ import chưa dọn không vỡ. Danh sách file legacy, an toàn xoá ở một 
   format` cả thư mục `score/` — sẽ format nhầm file này (đã xảy ra 2 lần, phải
   `git checkout` lại). Format từng file cụ thể, không format nguyên thư mục.
 
-## 5. Việc tiếp theo — 0.10 (dbt) và 0.11 (publish)
+## 5A. Đã làm — 0.10 (dbt: staging + intermediate + marts)
 
-**0.10 cần:**
-- Thêm `dbt-core` + `dbt-postgres` vào `pyproject.toml` (chưa có — dừng và hỏi nếu cần
-  version cụ thể, theo đúng tinh thần AGENTS.md mục 4).
-- `gold.dim_source` (SCD2) từ `config/sources.yaml` (đọc `tier`, `industries`).
-- `gold.fct_article_score` — công thức THẬT §5.7 (credibility 80/20 blend, recency, depth
-  weight 0). Sau khi xong, xoá `composite.py`, sửa `runner.py` (xem mục 2.3).
-- `gold.mart_daily_digest`, `gold.mart_pipeline_health` (§5.8).
-- KHÔNG động vào bronze/silver — chỉ đọc.
+`dbt_project/` (mục 6 của plan) đã chạy thật trên DB dev — `dbt build --full-refresh` sạch
+100% (44/44: 1 seed, 1 snapshot, 3 view, 2 table, 2 incremental, 35 data test).
 
-**0.11 cần:**
+- **Staging** (`stg_articles`, `stg_article_scores`, `stg_sources`) — view, chỉ đổi tên cột
+  + ép kiểu, đọc từ `source('silver', ...)`. `stg_sources` đọc từ seed (xem dưới).
+- **Seed + snapshot cho `dim_source`**: `dbt_project/seeds/seed_sources.csv` nạp nguyên văn
+  `config/sources.yaml` (industries lưu dạng chuỗi `"ai|tech"`, tách bằng
+  `string_to_array` ở `stg_sources`). `snapshots/snap_sources.sql` (strategy `check` trên
+  `tier/is_enabled/industries`) → `marts/dim_source.sql` đổi tên cột dbt chuẩn
+  (`dbt_scd_id`→`source_key`, `dbt_valid_from/to`→`valid_from/to`) sang tên nghiệp vụ §5.6.
+- **`int_articles_deduped`** (ephemeral) — dedup cấp 2 theo `content_hash`, TÍNH CẢ
+  composite_score ở đây (không phải ở `fct_article_score`): việc chọn "người thắng" của
+  dedup phụ thuộc trực tiếp vào composite, nên phải tính trước khi lọc. Vì vậy model
+  intermediate này `ref()` tới `dim_source` (marts) — lệch thứ tự thư mục gợi ý ở §6 nhưng
+  không tạo vòng lặp DAG (dim_source không phụ thuộc gì vào articles/scores). Có log số
+  nhóm content_hash bị trùng qua `run_query()` + `log()` mỗi lần build.
+- **`fct_article_score`** — incremental/merge trên `score_id`, lookback 3 ngày qua
+  `dbt_project.yml` var `fct_article_score_lookback_days`, hỗ trợ `--vars
+  '{run_date: YYYY-MM-DD}'`. Đã verify: chạy 2 lần liên tiếp → `MERGE 57` (số dòng không đổi).
+- **`mart_daily_digest`** — join `fct_article_score` + `stg_articles` + `dim_source`, cửa sổ
+  `digest_window_hours` (var), sort composite giảm dần, `industry_group` = tag đầu tiên của
+  `industry_tags` (một dòng một bài — không explode theo tag).
+- **`mart_pipeline_health`** — incremental/merge trên `pipeline_date`. **Quyết định đáng
+  chú ý:** `pipeline_date` là trục lịch chung (union `ingest_date`, `first_seen_date`,
+  `scored_at::date`, quarantine `created_at::date`, `fetch_date`), KHÔNG chỉ riêng
+  `ingest_date` — vì §7.3 nói rõ bài ingest chiều hôm trước có thể chấm điểm sáng hôm sau.
+- Toàn bộ trọng số/ngưỡng/cửa sổ nằm ở `dbt_project.yml` → `vars:` (đã tự verify: đổi
+  `composite_weight_importance` từ 0.40 lên 0.80 rồi `dbt run --full-refresh` → composite
+  đổi theo, revert lại thấy đổi ngược — không sửa dòng SQL nào).
+- Test: 5 schema-level nhóm (`unique`/`not_null`/`accepted_values`/`relationships`) +
+  5 singular test theo đúng §13.2 (`assert_score_range`, `assert_no_future_published_at`,
+  `assert_digest_not_empty`, `assert_no_orphan_scores`) + 1 singular bổ sung
+  `assert_dim_source_single_current` (§13.1 yêu cầu "đúng 1 dòng is_current mỗi source_id"
+  — không biểu diễn được bằng generic schema test nên viết singular).
+  `assert_summary_five_bullets` để lại Phase 1 như plan cho phép (chưa có model summary).
+
+**Hai lỗi phát hiện khi chạy thật trên dữ liệu thật (không phải giả định lúc viết SQL):**
+1. `mart_pipeline_health.source_fail_count` ban đầu đếm SAI: coi HTTP 304 (Not Modified —
+   phản hồi ĐÚNG của conditional GET §8.1) là lỗi. Sửa: fail = có `error_message` hoặc
+   `http_status >= 400`. Nếu thấy `source_fail_count` bất thường cao ở lần chạy đầu tiên
+   sau khi sửa lại logic này, kiểm tra lại điều kiện, đừng lặp lại lỗi cũ.
+2. `generate_schema_name` mặc định của dbt nối `<target_schema>_<custom_schema>` — vì
+   profile target schema và `+schema:` project đều là `gold`, mọi thứ ban đầu bị ghi vào
+   `gold_gold` thay vì `gold`. Đã ghi đè macro ở `macros/get_custom_schema.sql` để dùng
+   đúng schema đã khai. Nếu sau này thêm schema khác cho dbt, sửa macro này trước.
+
+**sqlfluff:** `.sqlfluff` ở repo root, `templater = dbt`, `dialect = postgres`,
+`max_line_length = 120` (comment tiếng Việt tự nhiên dài hơn 80 — không ép ngắt dòng comment
+giữa chừng). Vài cột nghiệp vụ thật trùng từ khoá SQL (`depth`, `domain`) → giữ tên, đánh
+dấu `-- noqa: RF04` kèm giải thích tại chỗ thay vì đổi tên (đổi sẽ lệch schema/contract).
+Alias join đổi từ `source`→`src` ở vài chỗ vì `source` cũng là từ khoá.
+
+**Sự cố môi trường đáng ghi lại — RACE CONDITION khi chạy song song nhiều `uv add`/`uv
+sync`:** giữa lúc làm task này, hai lệnh `uv add` chạy nền chồng lên nhau (một cho
+`dbt-core`/`dbt-postgres`, một cho `sqlfluff`/`sqlfluff-templater-dbt`) đã ghi đè lẫn nhau
+lên `pyproject.toml` — kết quả cuối cùng mất TOÀN BỘ dependency gốc (`feedparser`,
+`SQLAlchemy`, `alembic`, `pydantic`, `typer`, ... và cả `[project.scripts]`,
+`[tool.mypy]`, `[tool.pytest.ini_options]`), phát hiện được vì `uv sync` sau đó tự uninstall
+`dbt-postgres`. Đã khôi phục thủ công từ nội dung đã đọc đầu phiên, `uv lock` + `uv sync`
+lại, và xác nhận `pytest tests/` vẫn 213 pass + `dbt build` vẫn sạch sau khi khôi phục.
+**Bài học: KHÔNG chạy nhiều `uv add`/`uv sync` đồng thời trên cùng một venv — chúng cùng
+đọc-sửa-ghi `pyproject.toml`/`uv.lock` không khoá lẫn nhau.** Chạy tuần tự.
+
+**Đã CHỦ ĐỘNG KHÔNG làm** (nằm ngoài 8 mục nhiệm vụ chi tiết được giao cho 0.10, dù
+mục 5 cũ của file này — nay đổi thành 5A — từng gợi ý làm cùng lúc): xoá
+`src/intel_bot/score/composite.py` và sửa `runner.py::_summarize_top_k()` để đọc composite
+từ `gold.fct_article_score` thay vì `compute_composite_score()`. Lý do hoãn: việc này đòi
+hỏi `dbt run` phải chạy xen giữa bước chấm điểm và bước chọn top-K tóm tắt trong cùng một
+lần `score` — một thay đổi luồng orchestration ngoài phạm vi 8 mục được giao, và task 0.12
+(Dagster) mới là chỗ luồng này được thiết kế lại đúng cách. `composite.py` vẫn đang là
+TẠM THỜI theo đúng docstring của nó — việc dọn dẹp này nên là một phần của task kế tiếp
+đụng tới `runner.py` (0.11 hoặc 0.12), không phải bị lờ đi.
+
+## 5B. Việc tiếp theo — 0.11 (publish)
+
 - Đọc `gold.mart_daily_digest`, publish JSON + HTML, KHÔNG business logic trong Python
   (§12.1 — mọi logic đã nằm ở dbt).
+- Cân nhắc luôn việc dọn `composite.py`/`runner.py` nêu ở 5A nếu 0.11 đụng tới luồng score
+  trước khi publish; nếu không, để lại rõ ràng cho 0.12.
 
 ## 6. Trạng thái DB dev hiện tại (lúc viết file này — sẽ lạc hậu, tự query lại)
 
@@ -184,6 +251,10 @@ silver.articles: 92            (57 scored, 35 excluded, 0 eligible)
 silver.article_scores: 69      (45 provider=mock cost=0, 12 provider=deepseek-v4-flash chi phí thật)
 silver.article_summaries: 27
 silver.score_quarantine: 0
+gold.dim_source: 8             (SCD2 từ snap_sources, tất cả is_current=true — chưa có đổi tier)
+gold.fct_article_score: 57     (== số bài scored ở silver, dedup cấp 2 chưa gộp bản nào)
+gold.mart_daily_digest: 57     (cửa sổ 48h theo first_seen_at, tính từ lúc build — sẽ giảm dần theo thời gian)
+gold.mart_pipeline_health: 2   (2026-08-10: ingest/filter; 2026-08-11: score — pipeline_date là trục lịch chung, xem 5A)
 ```
 Dữ liệu deepseek là request thật, tốn tiền thật (rất nhỏ, ~$0.008). Đừng chạy lại
 `--provider deepseek` trên diện rộng chỉ để test — dùng `--provider mock`.
@@ -200,8 +271,13 @@ Dữ liệu deepseek là request thật, tốn tiền thật (rất nhỏ, ~$0.0
 
 ## 8. Test
 
-213 test, `uv run pytest tests/` — tất cả dùng Postgres THẬT (docker, cổng 5435) cho phần
-integration, KHÔNG mock DB; chỉ mock mạng (`httpx.MockTransport` hoặc `MockProvider`).
+213 test Python, `uv run pytest tests/` — tất cả dùng Postgres THẬT (docker, cổng 5435) cho
+phần integration, KHÔNG mock DB; chỉ mock mạng (`httpx.MockTransport` hoặc `MockProvider`).
 Không cần biến môi trường nào để chạy phần contract/mock (task 0.7 trở đi tự chứng minh
 bằng `env -i`). `ruff`/`mypy --strict` chỉ chạy sạch trên file đã viết ở task 0.2 trở đi —
 code legacy (mục 4) còn nợ lint, không nằm trong phạm vi bất kỳ task nào.
+
+Riêng dbt (task 0.10): 35 data test qua `dbt test`/`dbt build` (`--project-dir dbt_project`,
+cần `DBT_PROFILES_DIR=dbt_project` hoặc `--profiles-dir dbt_project`) — độc lập với 213 test
+Python ở trên, không chạy qua `pytest`. `sqlfluff lint dbt_project --dialect postgres` sạch
+(macro bị `sqlfluff-templater-dbt` tự skip — giới hạn đã biết của templater, không phải lỗi).

@@ -1,0 +1,25 @@
+# profiles.yml — kết nối Postgres cho dbt, đọc TOÀN BỘ từ biến môi trường (task 0.10 mục 1).
+#
+# Không đặt file này ở ~/.dbt/ (mặc định của dbt) để không phụ thuộc máy dev cụ thể — chạy
+# dbt trong repo này luôn cần `--profiles-dir dbt_project` (hoặc biến môi trường
+# DBT_PROFILES_DIR=dbt_project), giống cách repo đã tự quản lý `alembic.ini` ở thư mục gốc.
+#
+# Biến đọc từ .env (đã tồn tại, không sửa .env theo AGENTS.md mục 5):
+#   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_PORT (5435, không phải 5432 —
+#   xem docs/PROGRESS.md mục 3.1).
+# POSTGRES_HOST không có trong .env.example (Docker Compose chỉ map cổng ra localhost) nên
+# dùng default 'localhost' qua tham số thứ hai của env_var — không phải giá trị đoán, mà
+# đúng với cách docker-compose.yml map cổng ra host.
+intel_bot:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5435') | int }}"
+      user: "{{ env_var('POSTGRES_USER') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB') }}"
+      schema: gold
+      threads: 4
+      connect_timeout: 10

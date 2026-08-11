@@ -1,0 +1,83 @@
+# dbt_project.yml — cấu hình dự án dbt cho task 0.10 (PRODUCTION_PLAN.md §11, mục 6).
+#
+# Toàn bộ trọng số/ngưỡng/số ngày cửa sổ của công thức điểm (§5.7) và cửa sổ digest (§5.8)
+# nằm ở khối `vars:` bên dưới — KHÔNG hardcode trong file .sql (AGENTS.md mục 3, rào chắn
+# của task 0.10). Đổi một số ở đây rồi `dbt run` lại là đủ, không cần sửa SQL.
+
+name: "intel_bot"
+version: "1.0.0"
+config-version: 2
+
+profile: "intel_bot"
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Không có schema "staging" riêng — migration 0001 chỉ tạo bronze/silver/gold (P8: không
+# thêm hạ tầng chưa cần). Toàn bộ model/seed của dbt ghi vào schema gold, đúng tinh thần
+# migration 0001: "gold để trống ở bước này — các bảng trong gold do dbt sinh ra (task 0.10)".
+models:
+  intel_bot:
+    +schema: gold
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
+
+seeds:
+  intel_bot:
+    +schema: gold
+
+snapshots:
+  intel_bot:
+    +target_schema: gold
+
+vars:
+  # ---- Công thức composite (§5.7) ----
+  # composite = importance*0.40 + practicality*0.30 + credibility_blended*0.30 + depth*0.00
+  #             + recency_boost
+  composite_weight_importance: 0.40
+  composite_weight_practicality: 0.30
+  composite_weight_credibility: 0.30
+  # depth: trọng số 0 — VẪN ghi cột để so sánh về sau, KHÔNG dùng để xếp hạng (§5.7 "Sửa lỗi 3":
+  # không thể đánh giá độ sâu từ snippet RSS 2-3 câu).
+  composite_weight_depth: 0.00
+
+  # ---- Blend credibility (§5.7 "Sửa lỗi 4": 80% source tier / 20% LLM, KHÔNG phải ngược lại) ----
+  credibility_source_tier_weight: 0.80
+  credibility_llm_weight: 0.20
+
+  # Ánh xạ tier nguồn (config/sources.yaml, seed_sources.csv) -> điểm credibility trên cùng
+  # thang 1-10 với điểm LLM, để blend có ý nghĩa. Tier 1 = uy tín chuyên ngành cao nhất theo
+  # chú thích trong config/sources.yaml -> điểm cao nhất; tier 3 dự trữ, chưa có nguồn nào
+  # dùng ở batch này. Đây là quyết định thang điểm ban đầu, có thể hiệu chỉnh qua feedback
+  # (Phase 2) mà không đụng SQL.
+  source_tier_score_map:
+    1: 10
+    2: 6
+    3: 3
+
+  # ---- Recency boost (§5.7) ----
+  # published_at (NULL thì first_seen_at) trong X giờ -> +boost; published_at_imputed=true
+  # thì trừ thêm phạt vì mốc thời gian là suy luận, không phải mốc gốc từ feed.
+  recency_window_full_hours: 12
+  recency_window_half_hours: 24
+  recency_boost_full: 1.0
+  recency_boost_half: 0.5
+  recency_boost_none: 0.0
+  recency_imputed_penalty: 0.3
+
+  # ---- Cửa sổ digest (§5.8) và incremental lookback (§11.3) ----
+  digest_window_hours: 48
+  fct_article_score_lookback_days: 3
+  mart_pipeline_health_lookback_days: 3

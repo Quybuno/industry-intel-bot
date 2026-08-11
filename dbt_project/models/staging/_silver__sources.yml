@@ -1,0 +1,18 @@
+version: 2
+
+# Khai báo các bảng silver mà dbt đọc (KHÔNG ghi) — task 0.10 chỉ đọc silver/bronze, không
+# sửa (rào chắn của task). silver.articles / silver.article_scores được dùng bởi staging
+# models bên dưới; các bảng còn lại khai báo sẵn để mart_pipeline_health (mục 7) dùng.
+sources:
+  - name: silver
+    schema: silver
+    tables:
+      - name: articles
+      - name: article_scores
+      - name: article_summaries
+      - name: score_quarantine
+      - name: source_health
+  - name: bronze
+    schema: bronze
+    tables:
+      - name: raw_articles
