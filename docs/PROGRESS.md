@@ -508,7 +508,7 @@ làm") — verify bằng chạy thật (`dagster dev`, `dagster asset materializ
 bằng bộ test tự động. `ruff check`/`ruff format`/`mypy --strict` sạch trên toàn bộ
 `dagster_project/`.
 
-## 9. Đã làm — Vệ sinh repo (D8–D10, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
+## 9. Đã làm — Vệ sinh repo (D8–D11, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
 
 Task KHÔNG đụng logic — chỉ dọn những gì một người ngoài mở repo lần đầu sẽ thấy trước tiên.
 
@@ -570,4 +570,10 @@ hoặc runtime state Dagster, nên ignore theo phần mở rộng là an toàn �
   legacy) ở prompt 11, tránh vỡ import trước khi code bị xoá.
 - `uv lock` rồi `uv sync` (tuần tự, đúng mục 8) — resolve sạch (180 gói), venv đồng bộ
   lại đúng lock. `uv run pytest tests/` → **229/229 pass**, không hỏng gì.
+
+**D11 — Đổi `AGENTS.MD` → `AGENTS.md`:** `git mv AGENTS.MD AGENTS.tmp && git mv AGENTS.tmp
+AGENTS.md` (2 bước, vì Windows không phân biệt hoa/thường). Kiểm tra các tài liệu tham
+chiếu cứng khác: `docs/PRODUCTION_PLAN.md`, `docs/PROGRESS.md` đã đúng case sẵn trên đĩa;
+grep toàn bộ `README.md` + `docs/*.md` cho tên 3 file này không thấy sai lệch hoa/thường
+nào — mọi link README đều mở được.
 
