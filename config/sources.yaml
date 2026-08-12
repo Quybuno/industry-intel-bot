@@ -62,3 +62,92 @@ sources:
     tier: 2
     industries: [iot]
     is_enabled: true
+
+  # Mở rộng task 1.1 (PRODUCTION_PLAN §8.5) — 12 nguồn dưới đây đã verify thật
+  # (HTTP 200 + feedparser parse được + entry mới nhất không "chết" + robots.txt cho
+  # phép) ngày 2026-08-12. Không có tag "data engineering" riêng trong INDUSTRY_TAGS
+  # (contracts/llm_score.py) nên các nguồn thiên data engineering gán industries
+  # [ai, tech] giống techcrunch_ai — thêm tag mới là sửa code, ngoài phạm vi task này.
+  - source_id: the_decoder
+    url: https://the-decoder.com/feed/
+    domain: the-decoder.com
+    tier: 1
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: mit_technology_review
+    url: https://www.technologyreview.com/feed/
+    domain: technologyreview.com
+    tier: 1
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: ars_technica_tech
+    url: https://feeds.arstechnica.com/arstechnica/technology-lab
+    domain: arstechnica.com
+    tier: 1
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: the_verge_ai
+    url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+    domain: theverge.com
+    tier: 2
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: huggingface_blog
+    url: https://huggingface.co/blog/feed.xml
+    domain: huggingface.co
+    tier: 1
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: simon_willison
+    url: https://simonwillison.net/atom/everything/
+    domain: simonwillison.net
+    tier: 2
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: marktechpost
+    url: https://www.marktechpost.com/feed/
+    domain: marktechpost.com
+    tier: 2
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: openai_news
+    url: https://openai.com/news/rss.xml
+    domain: openai.com
+    tier: 1
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: netflix_tech_blog
+    url: https://netflixtechblog.com/feed
+    domain: netflixtechblog.com
+    tier: 2
+    industries: [ai, tech]
+    is_enabled: true
+
+  - source_id: towards_data_science
+    url: https://towardsdatascience.com/feed
+    domain: towardsdatascience.com
+    tier: 2
+    industries: [ai, tech]
+    is_enabled: true
+
+  - source_id: databricks_blog
+    url: https://www.databricks.com/feed
+    domain: databricks.com
+    tier: 2
+    industries: [ai, tech]
+    is_enabled: true
+
+  - source_id: dbt_labs_blog
+    url: https://www.getdbt.com/blog/rss.xml
+    domain: getdbt.com
+    tier: 2
+    industries: [ai, tech]
+    is_enabled: true

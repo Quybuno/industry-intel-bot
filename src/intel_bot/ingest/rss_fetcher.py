@@ -60,13 +60,18 @@ class SourceFetchOutcome:
 
 @dataclass
 class SourceValidation:
-    """Kết quả kiểm tra một nguồn cho lệnh `validate-sources`."""
+    """Kết quả kiểm tra một nguồn cho lệnh `validate-sources` (task 1.1, §8.5)."""
 
     source_id: str
     domain: str
     http_status: int | None
     entry_count: int
     has_date_field: bool
+    #: Ngày (UTC) của entry mới nhất trong feed, dạng ISO — None nếu không entry nào có
+    #: trường ngày. KHÔNG dùng để tự động fail (ngưỡng "feed chết" là quyết định nghiệp vụ,
+    #: xem task 1.1) — chỉ hiển thị trong bảng `validate-sources` để người đọc tự nhận ra
+    #: feed đã ngừng đăng bài mới dù vẫn HTTP 200 + parse được.
+    latest_entry_date: str | None
     ok: bool
     error: str | None
 
@@ -116,9 +121,7 @@ def compute_payload_hash(payload: dict[str, Any]) -> str:
 def _json_safe(value: object) -> object:
     """Đệ quy chuyển các kiểu feedparser không JSON-hoá được (vd. `time.struct_time`)."""
     if isinstance(value, time_module.struct_time):
-        return datetime.fromtimestamp(
-            calendar.timegm(value), tz=UTC
-        ).isoformat()
+        return datetime.fromtimestamp(calendar.timegm(value), tz=UTC).isoformat()
     if isinstance(value, dict):
         return {str(k): _json_safe(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -138,6 +141,30 @@ def entry_to_payload(entry: Any) -> dict[str, Any]:
 def has_date_field(payload: dict[str, Any]) -> bool:
     """Entry có trường ngày thô (published/updated) hay không — dùng cho validate-sources."""
     return bool(payload.get("published") or payload.get("updated"))
+
+
+def latest_entry_date(entries: list[dict[str, Any]]) -> str | None:
+    """Ngày (ISO, UTC) của entry mới nhất trong danh sách payload — dùng cho
+    `validate-sources` (task 1.1, §8.5) để người đọc bảng tự nhận ra "feed chết" (HTTP 200 +
+    parse được nhưng bài mới nhất đã rất cũ). Hàm thuần — không gọi mạng.
+
+    Ưu tiên `published_parsed`/`updated_parsed` (đã là chuỗi ISO qua `_json_safe`); nếu
+    không có, dùng nguyên văn `published`/`updated` (có thể không parse được thành ngày
+    chuẩn, nhưng vẫn hiển thị được cho người đọc bảng)."""
+    best: str | None = None
+    for entry in entries:
+        for field_name in (
+            "published_parsed",
+            "updated_parsed",
+            "published",
+            "updated",
+        ):
+            value = entry.get(field_name)
+            if isinstance(value, str) and value:
+                if best is None or value > best:
+                    best = value
+                break
+    return best
 
 
 async def _fetch_one_source(
@@ -260,6 +287,7 @@ async def validate_sources(
                 http_status=outcome.http_status,
                 entry_count=entry_count,
                 has_date_field=any_date,
+                latest_entry_date=latest_entry_date(outcome.entries),
                 ok=ok,
                 error=outcome.error,
             )

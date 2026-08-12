@@ -122,7 +122,11 @@ def ingest(
 
 @app.command("validate-sources")
 def validate_sources_cmd() -> None:
-    """Kiểm tra từng nguồn trong config/sources.yaml: HTTP 200, parse được, ≥1 entry, có ngày."""
+    """Kiểm tra từng nguồn trong config/sources.yaml: HTTP 200, parse được, ≥1 entry, có ngày.
+
+    Task 1.1 (PRODUCTION_PLAN §8.5): lệnh này chạy trong CI — exit code khác 0 nếu BẤT KỲ
+    nguồn nào fail, để CI đỏ thật khi một nguồn ngừng hoạt động, không chỉ in bảng cho có.
+    """
     user_agent, timeout, max_concurrent = _load_ingest_settings()
     sources = load_source_configs(only_enabled=False)
     if not sources:
@@ -138,14 +142,21 @@ def validate_sources_cmd() -> None:
         )
     )
 
-    headers = ("source_id", "domain", "http", "entries", "có ngày", "kết quả")
+    headers = (
+        "source_id",
+        "domain",
+        "http",
+        "entries",
+        "ngày mới nhất",
+        "kết quả",
+    )
     rows = [
         (
             r.source_id,
             r.domain,
             str(r.http_status) if r.http_status is not None else "-",
             str(r.entry_count),
-            "yes" if r.has_date_field else "no",
+            r.latest_entry_date or "-",
             "OK" if r.ok else f"FAIL ({r.error})" if r.error else "FAIL",
         )
         for r in results
@@ -165,6 +176,14 @@ def validate_sources_cmd() -> None:
 
     ok_count = sum(1 for r in results if r.ok)
     typer.echo(f"\n{ok_count}/{len(results)} nguồn OK")
+
+    failed = [r for r in results if not r.ok]
+    if failed:
+        typer.echo(
+            f"\n{len(failed)} nguồn FAIL: " + ", ".join(r.source_id for r in failed),
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command()

@@ -848,3 +848,113 @@ D1/D4 trả nợ ngay tại chỗ nợ được ghi ban đầu.
   `config.py` mà nó dùng) có vẻ là code chết (không ai gọi, xem mục 10 D3) — KHÔNG xoá vì
   không nằm trong danh sách mục 4 và ngoài phạm vi D3 (chỉ sửa type cho sạch mypy). Nếu có
   task dọn dẹp tiếp theo, đây là ứng viên.
+
+## 12. Đã làm — 1.1 Mở rộng nguồn (PRODUCTION_PLAN §8.1/§8.5/§5.6) — DỪNG GIỮA CHỪNG theo
+rào chắn, chờ quyết định
+
+**Nguồn mới — 12/33 ứng viên qua verify thật (HTTP 200 + feedparser parse được + entry mới
+nhất không quá cũ + robots.txt cho phép), ngày 2026-08-12:**
+
+16 URL người dùng đưa (2 trùng nguồn đã có `techcrunch_ai`/`construction_dive`, bỏ qua) +
+15 nguồn AI/data-engineering tự đề xuất (được người dùng cho phép mở rộng phạm vi tìm kiếm,
+nhưng GitHub/Reddit KHÔNG thêm qua kênh này — cần fetcher riêng, task 1.2 mới làm, Reddit
+fetcher legacy đã xoá ở D3) → **12 nguồn pass, 21 fail**:
+
+| Lý do fail | Số lượng | Ví dụ |
+|---|---|---|
+| HTTP 403 (chặn bot) | 8 | ENR, BDC Network, Autodesk Construction, Industry Week, Assembly Magazine, SME, ACHR News, Contracting Business |
+| HTTP 404 | 5 | ASHRAE Journal, Anthropic `/rss.xml`, Uber Eng `/feed/`, Apache Airflow blog, deeplearning.ai The Batch |
+| HTTP 500 | 1 | Manufacturing News |
+| Feed rỗng/redirect sang HTML (không phải feed thật) | 4 | ICT News VN, VnEconomy, LangChain Blog, Airbnb Engineering |
+| Connect timeout/refused | 2 | HPAC Magazine, Medium "data-engineering-things" (slug có thể sai) |
+| **Feed "chết" theo nghĩa thực dụng** | 1 | VentureBeat AI — HTTP 200, parse được, nhưng entry mới nhất đã 84 ngày; với cửa sổ digest 48h + cold-start loại bài >7 ngày (§8.2), feed này đóng góp 0 bài cho digest dù kỹ thuật chưa "chết 2 năm" như ví dụ trong đề bài. Loại, có ghi rõ lý do để dễ đổi ý sau. |
+
+12 nguồn pass (tier/industries đã được người dùng xác nhận trước khi ghi file — KHÔNG tự
+chốt): `the_decoder`, `mit_technology_review`, `ars_technica_tech`, `the_verge_ai`,
+`huggingface_blog`, `simon_willison`, `marktechpost`, `openai_news`, `netflix_tech_blog`,
+`towards_data_science`, `databricks_blog`, `dbt_labs_blog`. **8 (cũ) + 12 (mới) = 20 nguồn**
+— đúng mốc ~20 của §8.5.
+
+Không có tag "data engineering" riêng trong `INDUSTRY_TAGS` (`contracts/llm_score.py` —
+`{ai, construction, hvac, manufacturing, iot}`) nên các nguồn thiên data engineering
+(`netflix_tech_blog`/`towards_data_science`/`databricks_blog`/`dbt_labs_blog`) gán
+`industries: [ai, tech]` giống `techcrunch_ai` đã có — thêm tag mới là sửa **code**
+(`INDUSTRY_TAGS`), ngoài phạm vi "chỉ là dữ liệu cấu hình" của task này.
+
+**`seed_sources.csv` + `dbt snapshot` — SCD2 đúng, đã tự verify bằng SQL trực tiếp (không
+chỉ đọc log dbt):**
+- `dbt seed` → `INSERT 20` vào `gold.seed_sources`.
+- `dbt snapshot` (lần đầu sau khi seed) → `INSERT 0 12`: đúng 12 dòng MỚI, **0 dòng bị
+  update/đóng** — 8 nguồn cũ hoàn toàn không bị chạm.
+- Query `gold.dim_source` trước/sau: 8 nguồn cũ giữ NGUYÊN `valid_from` gốc
+  (`2026-08-11 04:18:00`), 12 nguồn mới có `valid_from` = lúc snapshot chạy
+  (`2026-08-12 07:37:13`); toàn bộ 20 dòng `is_current=true`, `valid_to=NULL`; không
+  `source_id` nào có >1 dòng. Snapshot chạy lại lần 2 → `INSERT 0 0` (idempotent).
+- `dbt build` toàn bộ sau đó: **54/54 PASS** (bao gồm `assert_dim_source_single_current`),
+  `fct_article_score`/`mart_daily_digest` giữ nguyên 12/12 (đúng — không có bài mới nào
+  được chấm/tóm tắt trong bước này).
+
+**Cứng hoá `validate-sources` (điểm 4, code — được phép sửa):**
+- `SourceValidation` (`ingest/rss_fetcher.py`) thêm field `latest_entry_date` (ISO string,
+  hàm thuần mới `latest_entry_date()` — ưu tiên `published_parsed`/`updated_parsed`, fallback
+  `published`/`updated` thô). **CHỦ Ý KHÔNG** đưa staleness vào tiêu chí `ok` (giữ nguyên
+  đúng 4 tiêu chí gốc §8.5: HTTP 200 + parse được + ≥1 entry + có trường ngày) — ngưỡng
+  "bao nhiêu ngày là feed chết" là quyết định nghiệp vụ cần một task riêng để chỉnh (dễ gây
+  CI đỏ giả nếu một nguồn thật chỉ đăng bài thưa hơn ngưỡng tự chọn), chỉ thêm cột hiển thị
+  cho người đọc bảng tự nhận ra.
+- CLI `validate-sources`: thêm cột "ngày mới nhất" vào bảng in ra; **thêm
+  `raise typer.Exit(code=1)` khi có ≥1 nguồn fail** (trước đây luôn exit 0 dù bảng in ra
+  toàn FAIL — đây chính là lỗi khiến lệnh này vô dụng khi chạy trong CI).
+- Test mới `tests/test_cli_validate_sources.py` (5 test): all-OK → exit 0; có 1 fail → exit
+  ≠ 0 + tên nguồn fail xuất hiện trong output; 3 test cho hàm thuần `latest_entry_date()`.
+- Verify: `uv run intel-bot validate-sources` thật trên 20 nguồn → **20/20 OK, exit 0**.
+  `ruff check`/`mypy --strict`/`ruff format --check` sạch. `uv run pytest` → **255/255 pass**
+  (250 sau D1–D4 + 5 mới).
+
+**Ingest thật 1 partition (hôm nay, 2026-08-12) — PHÁT HIỆN VƯỢT NGƯỠNG, DỪNG theo rào
+chắn "nếu >500 bài/ngày, DỪNG và báo cáo, không tự làm tiếp":**
+
+```
+uv run intel-bot ingest --date 2026-08-12
+→ entries_fetched=2148 rows_inserted=2148 sources_ok=20 sources_failed=0
+```
+
+**2148 ≫ 500** — đã DỪNG, KHÔNG chạy `normalize`/`filter`/`score` tiếp cho partition này,
+KHÔNG tự quyết định bật embedding filter sớm (§9.1 nói rõ đây là quyết định kiến trúc, chờ
+người quyết).
+
+**Phân tích nguyên nhân (breakdown theo source_id, không đoán):**
+
+| source_id | Số dòng ingest hôm nay |
+|---|---|
+| `openai_news` | 1124 |
+| `huggingface_blog` | 839 |
+| `simon_willison` | 30 |
+| `dbt_labs_blog` | 25 |
+| `ars_technica_tech`, `techcrunch_ai`, `towards_data_science` | 20 mỗi nguồn |
+| `netflix_tech_blog`, `databricks_blog`, `construction_enquirer`, `the_verge_ai`, `the_decoder`, `marktechpost`, `mit_technology_review` | 10 mỗi nguồn |
+| 6 nguồn còn lại (đã ingest từ 08-10/08-11 trước đó) | 0 (toàn bộ entry đã có trong bronze, dedup theo `payload_hash`) |
+
+`openai_news` + `huggingface_blog` = **1963/2148 (91%)** tổng số dòng. Đây là feed
+**full-history KHÔNG phân trang** (feedparser trả về TOÀN BỘ entry hiện có trong XML, không
+giới hạn "N bài gần nhất" như đa số feed khác) — lần ingest ĐẦU TIÊN của 2 nguồn này coi
+toàn bộ lịch sử là "mới" vì `payload_hash` chưa từng thấy. **Không phải nhịp hằng ngày sẽ
+lặp lại**: đã tự verify bằng cách chạy lại `ingest --date 2026-08-12` lần 2 (cùng ngày) →
+`rows_inserted=0` (idempotent qua dedup cấp 0, đúng §8.4). Loại bỏ 2 nguồn này:
+2148 − 1963 = **185 bài/18 nguồn/ngày** — RẤT KHỚP giả định `~20 feed × ~10 bài/ngày ≈ 200`
+của plan (§8.5 dòng 636).
+
+**Không tự quyết — cần người dùng chọn một trong các hướng (hoặc hướng khác):**
+1. Giữ nguyên 2 nguồn, chấp nhận backlog một-lần lớn hôm nay (~1963 bài) sẽ được `normalize`
+   cold-start (§8.2) loại gần hết vì `published_at` cũ hơn 7 ngày — chỉ tốn dung lượng bronze,
+   không tốn tiền LLM. Rủi ro: không biết chắc 2 feed này có luôn full-history hay chỉ tình
+   cờ hôm nay lớn.
+2. Bỏ 2 nguồn khỏi `sources.yaml` (dễ nhất, nhưng mất 2 nguồn AI hàng đầu — OpenAI/HF).
+3. Bật embedding filter sớm hơn kế hoạch (§9.1) — đúng là quyết định kiến trúc lớn, đề bài
+   nói rõ không tự làm.
+4. Thêm giới hạn số entry/nguồn/lần fetch ở tầng ingest (vd. chỉ lấy N entry mới nhất) —
+   đây là sửa **logic fetcher**, rào chắn task này cấm ("KHÔNG đổi logic fetcher").
+
+**Cố ý CHƯA làm** (vì lý do trên, chờ quyết định): `normalize`/`filter`/`score` cho
+partition 2026-08-12; đối chiếu số bài ELIGIBLE thật (chỉ có số RAW ingest, chưa qua
+cold-start/filter); mọi thay đổi liên quan tới 2 nguồn `openai_news`/`huggingface_blog`.

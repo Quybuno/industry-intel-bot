@@ -7,3 +7,15 @@ manufacturing_dive,manufacturingdive.com,1,manufacturing,true
 cooling_post,coolingpost.com,1,hvac,true
 iot_analytics,iot-analytics.com,1,iot,true
 stacey_on_iot,staceyoniot.com,2,iot,true
+the_decoder,the-decoder.com,1,ai,true
+mit_technology_review,technologyreview.com,1,ai,true
+ars_technica_tech,arstechnica.com,1,ai,true
+the_verge_ai,theverge.com,2,ai,true
+huggingface_blog,huggingface.co,1,ai,true
+simon_willison,simonwillison.net,2,ai,true
+marktechpost,marktechpost.com,2,ai,true
+openai_news,openai.com,1,ai,true
+netflix_tech_blog,netflixtechblog.com,2,ai|tech,true
+towards_data_science,towardsdatascience.com,2,ai|tech,true
+databricks_blog,databricks.com,2,ai|tech,true
+dbt_labs_blog,getdbt.com,2,ai|tech,true
