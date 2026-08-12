@@ -38,6 +38,18 @@
     )
 {% endmacro %}
 
+{% macro is_production_model(model_column) %}
+    {#- Loại provider test/CI (var('non_production_model_names'), vd. 'mock') khỏi mọi lựa
+       chọn "bản mới nhất" ở gold — điểm/tóm tắt do các provider này sinh là placeholder cố
+       định, không phải nội dung thật, không được lẫn vào fct_article_score/mart_daily_digest
+       (phát hiện qua publish thật, task 0.11 — xem dbt_project.yml). #}
+    {{ model_column }} not in (
+        {%- for name in var('non_production_model_names') -%}
+        '{{ name }}'{% if not loop.last %}, {% endif %}
+        {%- endfor -%}
+    )
+{% endmacro %}
+
 {% macro composite_score(importance_expr, practicality_expr, credibility_blended_expr, depth_expr, recency_boost_expr) %}
     {#- composite = importance*0.40 + practicality*0.30 + credibility_blended*0.30
        + depth*0.00 + recency_boost (§5.7). depth vẫn nhân trọng số (0 theo var) để đổi lại

@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Industry Intel Digest — {{ generated_for_date_display }}</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --bg-card: #171d2c;
+    --border: #2a3142;
+    --text: #e7ebf3;
+    --text-dim: #9aa4b8;
+    --accent: #5b9dff;
+    --accent-2: #35d0a1;
+    --tier1: #35d0a1;
+    --tier2: #f2b84b;
+    --tier-other: #9aa4b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header.site-header {
+    padding: 1.5rem 1rem 1rem;
+    border-bottom: 1px solid var(--border);
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  header.site-header h1 {
+    margin: 0 0 0.4rem;
+    font-size: 1.5rem;
+  }
+  header.site-header .meta {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+  nav.section-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  nav.section-nav a {
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  section.industry-section {
+    margin-bottom: 2rem;
+  }
+  section.industry-section h2 {
+    font-size: 1.15rem;
+    border-left: 4px solid var(--accent);
+    padding-left: 0.6rem;
+    margin: 0 0 0.75rem;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+  @media (min-width: 640px) {
+    .card-grid { grid-template-columns: 1fr 1fr; }
+  }
+  article.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  article.card.is-read {
+    opacity: 0.55;
+  }
+  .card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+  }
+  .badge {
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    background: #232b3d;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .badge.tier-1 { color: var(--tier1); border: 1px solid var(--tier1); }
+  .badge.tier-2 { color: var(--tier2); border: 1px solid var(--tier2); }
+  .badge.tier-other { color: var(--tier-other); border: 1px solid var(--tier-other); }
+  .card-title a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 1.02rem;
+    font-weight: 600;
+  }
+  .card-title a:hover { color: var(--accent); }
+  .score-bar-track {
+    background: #232b3d;
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  .score-label {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+  ul.summary-bullets {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.92rem;
+  }
+  ul.summary-bullets li { margin-bottom: 0.25rem; }
+  .why-it-matters {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    border-top: 1px dashed var(--border);
+    padding-top: 0.5rem;
+  }
+  .why-it-matters strong { color: var(--text); }
+  .card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: auto;
+    font-size: 0.82rem;
+  }
+  .read-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  button.copy-id-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  button.copy-id-btn:hover { color: var(--text); border-color: var(--accent); }
+  footer.site-footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--border);
+  }
+  footer.site-footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <h1>Industry Intel Digest</h1>
+  <div class="meta">
+    Ngày: {{ generated_for_date_display }} &middot;
+    Số bài: {{ article_count }} &middot;
+    Cập nhật lúc: {{ digest_built_at_display }} (giờ Việt Nam)
+  </div>
+</header>
+<main>
+  <nav class="section-nav">
+    {% for section in sections %}
+    <a href="#section-{{ loop.index }}">{{ section.label }} ({{ section.articles|length }})</a>
+    {% endfor %}
+  </nav>
+
+  {% for section in sections %}
+  <section class="industry-section" id="section-{{ loop.index }}">
+    <h2>{{ section.label }}</h2>
+    <div class="card-grid">
+      {% for article in section.articles %}
+      <article class="card" data-article-id="{{ article.article_id }}">
+        <div class="card-badges">
+          <span class="badge">{{ article.source_domain }}</span>
+          <span class="badge {{ 'tier-1' if article.source_tier_label == 'Tier 1' else ('tier-2' if article.source_tier_label == 'Tier 2' else 'tier-other') }}">{{ article.source_tier_label }}</span>
+          <span class="badge">{{ article.published_display }}</span>
+        </div>
+        <h3 class="card-title"><a href="{{ article.url }}" target="_blank" rel="noopener noreferrer">{{ article.title }}</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: {{ article.score_bar_percent }}%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: {{ article.composite_score_display }}</div>
+        </div>
+        <ul class="summary-bullets">
+          {% for bullet in article.summary_vi %}
+          <li>{{ bullet }}</li>
+          {% endfor %}
+        </ul>
+        {% if article.why_it_matters_vi %}
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> {{ article.why_it_matters_vi }}</p>
+        {% endif %}
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="{{ article.article_id }}">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="{{ article.article_id }}">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</main>
+<footer class="site-footer">
+  <p>Tóm tắt và đánh giá trên trang này do AI sinh tự động — vui lòng đọc bài gốc trước khi
+  trích dẫn hoặc ra quyết định. Trang không đăng lại toàn văn nội dung gốc, chỉ tiêu đề,
+  liên kết, và tóm tắt do hệ thống sinh.</p>
+  <p>Mã nguồn: <a href="{{ repo_url }}" target="_blank" rel="noopener noreferrer">{{ repo_url }}</a></p>
+  <p>Phản hồi: bấm "Sao chép ID phản hồi" trên bài muốn góp ý, dán vào issue hoặc gửi trực
+  tiếp — Phase 0 chưa có form thu thập tự động.</p>
+</footer>
+<script>
+(function () {
+  "use strict";
+  var STORAGE_KEY = "intelBotReadArticles";
+
+  function loadReadIds() {
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveReadIds(ids) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    } catch (err) {
+      /* localStorage không dùng được (chế độ riêng tư, quota) — bỏ qua, không chặn trang. */
+    }
+  }
+
+  function applyReadState(checkbox, isRead) {
+    checkbox.checked = isRead;
+    var card = checkbox.closest(".card");
+    if (card) {
+      card.classList.toggle("is-read", isRead);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var readIds = loadReadIds();
+
+    var checkboxes = document.querySelectorAll(".read-checkbox");
+    checkboxes.forEach(function (checkbox) {
+      var articleId = checkbox.getAttribute("data-article-id");
+      applyReadState(checkbox, Boolean(readIds[articleId]));
+      checkbox.addEventListener("change", function () {
+        readIds[articleId] = checkbox.checked;
+        saveReadIds(readIds);
+        applyReadState(checkbox, checkbox.checked);
+      });
+    });
+
+    var copyButtons = document.querySelectorAll(".copy-id-btn");
+    copyButtons.forEach(function (button) {
+      var originalLabel = button.textContent;
+      button.addEventListener("click", function () {
+        var articleId = button.getAttribute("data-article-id");
+        var done = function () {
+          button.textContent = "Đã sao chép!";
+          window.setTimeout(function () {
+            button.textContent = originalLabel;
+          }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(articleId).then(done, function () {
+            window.prompt("Sao chép article_id:", articleId);
+          });
+        } else {
+          window.prompt("Sao chép article_id:", articleId);
+        }
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

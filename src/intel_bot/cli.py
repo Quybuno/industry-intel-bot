@@ -4,6 +4,7 @@ import io
 import os
 import sys
 from decimal import Decimal
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
@@ -31,6 +32,7 @@ from src.intel_bot.ingest.rss_fetcher import (
     run_rss_ingest,
     run_validate_sources,
 )
+from src.intel_bot.publish.runner import run_publish
 from src.intel_bot.score.cost import ModelPricing
 from src.intel_bot.score.providers.base import LLMProvider
 from src.intel_bot.score.providers.deepseek import DeepSeekProvider
@@ -357,9 +359,69 @@ def score(
 
 
 @app.command()
-def publish() -> None:
-    """Run the publish job (export JSON + HTML + git push)."""
-    typer.echo("Running publish (placeholder)")
+def publish(
+    date: str | None = typer.Option(
+        None,
+        "--date",
+        help=(
+            "Ngày publish (YYYY-MM-DD), mặc định hôm nay theo giờ Asia/Ho_Chi_Minh — chỉ "
+            "dùng để đặt tên file archive và hiển thị header, KHÔNG lọc lại "
+            "gold.mart_daily_digest (mart tự quyết cửa sổ 48h khi build, §12.1)."
+        ),
+    ),
+) -> None:
+    """Xuất `gold.mart_daily_digest` ra JSON + HTML tĩnh (PRODUCTION_PLAN §12.1-12.4).
+
+    Truy vấn DUY NHẤT: SELECT * FROM gold.mart_daily_digest — không sắp xếp/lọc/dedup gì
+    thêm ở đây, mart đã làm hết (§12.1). Sau khi ghi file, cập nhật
+    silver.articles.last_published_at (ngoại lệ DUY NHẤT được chạm bảng khác).
+    """
+    if date:
+        generated_for_date = datetime.date.fromisoformat(date)
+    else:
+        generated_for_date = datetime.datetime.now(tz=VN_TZ).date()
+    now = datetime.datetime.now(tz=VN_TZ)
+
+    publish_cfg = load_config_dir().get("app", {}).get("publish", {})
+    repo_url = publish_cfg.get("repo_url")
+    if not repo_url:
+        typer.echo(
+            "Thiếu config app.yaml: publish.repo_url — không tự bịa link repo.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    docs_site_dir = Path(publish_cfg.get("docs_site_dir", "docs-site"))
+    templates_dir = Path(publish_cfg.get("templates_dir", "templates"))
+
+    database_url = get_database_url()
+    engine = sa.create_engine(database_url, future=True)
+    try:
+        with engine.connect() as connection:
+            result = run_publish(
+                connection,
+                generated_for_date=generated_for_date,
+                docs_site_dir=docs_site_dir,
+                templates_dir=templates_dir,
+                repo_url=repo_url,
+                now=now,
+            )
+    finally:
+        engine.dispose()
+
+    typer.echo(
+        f"Publish ngày {generated_for_date}: {result.article_count} bài -> "
+        f"{result.index_html_path}"
+    )
+    typer.echo(f"  JSON: {result.articles_json_path}")
+    typer.echo(f"  Archive: {result.archive_json_path}")
+    typer.echo(
+        f"  Đã cập nhật last_published_at cho {result.articles_marked_published} bài"
+    )
+    if result.article_count == 0:
+        typer.echo(
+            "Cảnh báo: gold.mart_daily_digest rỗng — kiểm tra dbt run gần nhất.",
+            err=True,
+        )
 
 
 @app.command()

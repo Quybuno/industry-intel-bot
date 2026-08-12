@@ -41,9 +41,17 @@ score:
   # models.yaml (vd. mock).
   default_batch_size: 10
 
-# publish window (used by publish job later)
+# publish settings (PRODUCTION_PLAN §12, task 0.11)
 publish:
+  # Cửa sổ 48h thật sự nằm ở dbt (dbt_project.yml var digest_window_hours) — mart đã tự
+  # lọc khi build. Hai giá trị dưới đây giữ lại để tài liệu hoá §12.2 cho người đọc config,
+  # KHÔNG dùng để lọc lại trong Python (rào chắn task 0.11).
   window_hours: 48
   archive_days: 7
+  # Link repo hiển thị ở footer trang publish (§12.4) — lấy đúng URL git remote thật, không
+  # bịa.
+  repo_url: "https://github.com/quybuno/industry-intel-bot"
+  docs_site_dir: "docs-site"
+  templates_dir: "templates"
 
 timezone: Asia/Ho_Chi_Minh

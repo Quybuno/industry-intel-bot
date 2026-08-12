@@ -21,7 +21,8 @@
 | 0.8 | Provider cloud + cost tracking | ✅ | **DeepSeek, không phải Gemini** — xem mục 2.1 |
 | 0.9 | Quarantine + luồng lỗi | ✅ | Gộp chung với 0.8, cùng một lần giao việc. Migration 0004 |
 | 0.10 | dbt: staging + gold | ✅ | Xem mục 5A — composite/dedup/SCD2 chạy thật trên DB dev |
-| 0.11 | Publish | ⬜ CHƯA LÀM | Xem mục 5B |
+| 0.11 | Publish | ✅ | Xem mục 5B — JSON + HTML tĩnh chạy thật; 24 bài lúc mới xong, còn 12 sau khi 5B tự sửa lỗi mock (xem 5B) |
+| 0.12 + 0.13 | Dagster asset graph + schedule + heartbeat | ✅ | Xem mục 5C — `dagster dev` chạy thật, materialize toàn đồ thị + backfill + heartbeat thật đều verify được |
 
 Lệnh CLI đã có thật (chạy bằng `uv run python -m src.intel_bot.cli <lệnh>` — xem mục 3.4
 về lý do không dùng `uv run intel-bot`):
@@ -32,10 +33,17 @@ validate-sources
 normalize --date YYYY-MM-DD
 filter --date YYYY-MM-DD
 score --date YYYY-MM-DD --provider mock|deepseek
+publish --date YYYY-MM-DD
 doctor
 ```
 
-`publish`, `pipeline`, `eval` vẫn là placeholder (`typer.echo("... (placeholder)")`).
+`pipeline`, `eval` vẫn là placeholder (`typer.echo("... (placeholder)")`).
+
+Từ task 0.12, còn có đường chạy thứ hai qua Dagster (song song với CLI, không thay thế —
+CLI vẫn chạy độc lập được): `uv run dagster dev -f dagster_project/definitions.py` (UI),
+`uv run dagster asset materialize --select "<tên asset>" -f dagster_project/definitions.py
+--partition YYYY-MM-DD` (headless). Xem README mục "Dagster" để biết chi tiết + 2 gotcha
+Windows (UTF-8 env var, không dùng `--select "*"`).
 
 ## 2. Lệch khỏi PRODUCTION_PLAN.md — BẮT BUỘC đọc trước khi động vào lớp Score
 
@@ -236,28 +244,239 @@ lần `score` — một thay đổi luồng orchestration ngoài phạm vi 8 m�
 TẠM THỜI theo đúng docstring của nó — việc dọn dẹp này nên là một phần của task kế tiếp
 đụng tới `runner.py` (0.11 hoặc 0.12), không phải bị lờ đi.
 
-## 5B. Việc tiếp theo — 0.11 (publish)
+## 5B. Đã làm — 0.11 (publish JSON + HTML)
 
-- Đọc `gold.mart_daily_digest`, publish JSON + HTML, KHÔNG business logic trong Python
-  (§12.1 — mọi logic đã nằm ở dbt).
-- Cân nhắc luôn việc dọn `composite.py`/`runner.py` nêu ở 5A nếu 0.11 đụng tới luồng score
-  trước khi publish; nếu không, để lại rõ ràng cho 0.12.
+`src/intel_bot/publish/` (digest_reader.py, json_exporter.py, html_renderer.py, runner.py)
++ `templates/index.html.j2`. Chạy thật: `uv run python -m src.intel_bot.cli publish` ra
+`docs-site/index.html` (12 bài — xem lỗi mock bên dưới, ban đầu là 24), `docs-site/articles.json`,
+`docs-site/archive/2026-08-11.json`, cập nhật `last_published_at`. Chạy 2 lần liên tiếp →
+cả 3 file giống hệt theo SHA-256 (đã tự verify bằng CLI thật, không chỉ test).
+
+**BUG phát hiện SAU khi báo "xong 0.11", do người dùng nhìn trang thật thấy chữ lạ:**
+mở `docs-site/index.html` thấy bullet kiểu *"Gạch đầu dòng giả lập số 0 cho digest
+197197197197"* và *"Lý do đáng chú ý giả lập, đủ dài để qua ràng buộc 20-300 ký tự"* — đây
+là text placeholder CỨNG của `MockProvider` (`src/intel_bot/score/providers/mock.py`,
+dùng khi `score --provider mock` lúc phát triển/test task 0.8, không tốn tiền), không phải
+tóm tắt AI thật. Gốc rễ: DB dev có 57/69 điểm và 15/27 tóm tắt do `mock` sinh (chạy trong
+lúc phát triển 0.8/0.9, không phải deepseek) trên CHÍNH những bài thật đã ingest — không
+phải dữ liệu test riêng biệt — nên khi 0.10/0.11 gom "bản mới nhất" cho mỗi bài, một số bài
+thật vô tình nhận điểm/tóm tắt giả lập vào thẳng `gold`, rồi publish thẳng lên trang công
+khai. Đây là lỗi dữ liệu-lẫn-vào-gold, không phải lỗi logic render của Python (publish chỉ
+hiển thị đúng những gì `mart_daily_digest` đưa).
+
+**Fix (dbt, đúng P5 — không lọc trong Python):** thêm var
+`non_production_model_names: ["mock"]` (`dbt_project.yml`) + macro `is_production_model()`
+(`macros/scoring.sql`), áp dụng ở `where` của CẢ `int_scores_latest` LẪN
+`int_summaries_latest` — loại các dòng model test/CI TRƯỚC khi xếp hạng "bản mới nhất". Một
+bài chỉ có điểm/tóm tắt từ `mock` giờ coi như CHƯA được chấm/tóm tắt thật, không vào
+`fct_article_score`/`mart_daily_digest` nữa. Hệ quả sau `dbt build --full-refresh`:
+`fct_article_score` 57→12 dòng, `mart_daily_digest` 24→12 dòng — **tất cả 12 bài còn lại
+đều do `deepseek-v4-flash` chấm và tóm tắt (đã verify: 0 kết quả `LIKE '%giả lập%'` trong
+`gold.mart_daily_digest` và trong `docs-site/articles.json` sau khi publish lại)**. 12 vẫn
+≥ 10 theo DONE WHEN gốc của 0.11, nên không cần chạy `--provider deepseek` thêm (tốn tiền
+thật) chỉ để bù số lượng.
+
+**Bài học cho task sau:** `score --provider mock` là để test CODE (không tốn tiền, xác
+định), KHÔNG phải để tạo dữ liệu digest xem thử — chạy nó trên bài thật rồi quên không lọc
+lại là cách dữ liệu giả lọt ra production. `non_production_model_names` trong
+`dbt_project.yml` giờ là hàng rào chung cho toàn bộ gold; nếu sau này thêm provider test
+khác (không chỉ 'mock'), thêm tên vào var đó, không cần sửa SQL.
+
+**Phát hiện quan trọng khi bắt đầu 0.11: `gold.mart_daily_digest` (làm ở 0.10) THIẾU tóm
+tắt tiếng Việt.** Task 0.10 chỉ làm staging cho `stg_articles`/`stg_article_scores` —
+`silver.article_summaries` chưa có staging/join nào ở gold. Nhưng card công khai (§12.4)
+bắt buộc có 5 bullet + "tại sao quan trọng", và rào chắn 0.11 cấm publish đọc bảng nào khác
+ngoài `mart_daily_digest`. Không có cách nào thoả cả hai nếu không sửa dbt trước. Đã bổ
+sung (dbt, không phải Python — đúng P5):
+- `stg_article_summaries.sql` (staging, view) + `int_summaries_latest.sql` (intermediate,
+  ephemeral, lấy summary mới nhất theo article_id — cùng mẫu `int_scores_latest`).
+- `mart_daily_digest` đổi từ LEFT sang **INNER JOIN** summary: một bài CHƯA có tóm tắt (chưa
+  vào top-K, §4.4) là bài CHƯA sẵn sàng publish — đây là quy tắc "bài nào được xuất bản",
+  cùng nhóm quyết định với dedup/ranking nên thuộc dbt. Hệ quả: `mart_daily_digest` giảm từ
+  57 dòng (0.10) xuống 24 dòng (chỉ còn bài đã có summary) — vẫn ≥ 10 theo DONE WHEN.
+- Thêm cột `digest_built_at` (= `current_timestamp` tại thời điểm dbt build, giống nhau ở
+  mọi dòng trong cùng một lần build) — dùng làm "thời điểm chạy pipeline" ở header (§12.4)
+  mà KHÔNG cần đọc `mart_pipeline_health` (bảng khác, bị rào chắn cấm). Đây cũng chính là
+  cách publish chạy 2 lần vẫn ra file giống hệt: `digest_built_at` cố định cho tới lần
+  `dbt run` kế tiếp, không phải `datetime.now()` của Python.
+- Thêm singular test `assert_summary_five_bullets` (§13.2, để lại từ 0.10 vì lúc đó chưa có
+  model summary — nay có nên bổ sung luôn). `dbt build` hiện 54/54 pass (từ 44 ở 0.10).
+
+**Quyết định thiết kế đáng chú ý khác:**
+- `fetch_digest_rows()` chạy `SELECT * FROM gold.mart_daily_digest` — **KHÔNG** thêm
+  `ORDER BY` (rào chắn: không sắp xếp trong Python). Dựa vào thứ tự vật lý của bảng do
+  `dbt run` build lại bằng CTAS (ổn định giữa các lần SELECT liên tiếp khi không có
+  UPDATE/DELETE xen giữa) — đã tự verify bằng CLI thật (2 lần chạy liên tiếp cho cùng
+  file), nhưng đây là giả định cần nhớ nếu sau này có gì UPDATE/DELETE trực tiếp lên
+  `gold.mart_daily_digest` ngoài `dbt run`.
+- CLI `publish --date` KHÔNG lọc lại `gold.mart_daily_digest` (mart tự quyết cửa sổ 48h khi
+  build) — chỉ dùng để đặt tên file archive + hiển thị "Ngày" ở header. `now` (thời điểm
+  thật) tách riêng, chỉ dùng cho `UPDATE last_published_at` — nhờ tách hai giá trị này mà
+  chạy publish nhiều lần trong cùng ngày với `now` khác nhau vẫn ra file giống hệt (test
+  `test_run_publish_twice_produces_identical_files` cố tình dùng `now` khác nhau ở 2 lần
+  gọi để verify điều này).
+- Nút phản hồi Phase 0 theo đúng §12.3 "phương án đơn giản nhất": copy `article_id` vào
+  clipboard qua `navigator.clipboard`, fallback `window.prompt` nếu trình duyệt chặn — KHÔNG
+  có 👍/👎 (khác bảng ở §12.4, task giao rõ dùng phương án Phase 0 của §12.3).
+- Checkbox "đã đọc" lưu ở `localStorage` (key `intelBotReadArticles`), không có phần nào
+  gọi network — đúng "trang tĩnh, không backend, không gọi API bên ngoài".
+- `config/app.yaml` có thêm `publish.repo_url` (lấy từ `git remote -v` thật, không bịa),
+  `publish.docs_site_dir`, `publish.templates_dir`. `publish.window_hours`/`archive_days`
+  giữ lại chỉ để tài liệu hoá — cửa sổ 48h thật nằm ở dbt var `digest_window_hours`.
+- `jinja2` được thêm THẲNG vào `pyproject.toml` (trước đó chỉ là transitive dependency qua
+  `typer`/`dbt-core`, không khai báo trực tiếp dù đã dùng ngầm) — AGENTS.md đã liệt kê
+  Jinja2 trong stack nên không cần dừng lại hỏi.
+
+**Test:** `tests/test_publish_html_renderer.py` (7 test thuần, không cần Postgres — số card,
+escape HTML/XSS, giữ nguyên tiếng Việt có dấu, 5 bullet, checkbox/copy button, footer),
+`tests/test_publish_json_exporter.py` (4 test thuần — cấu trúc payload, JSON valid, không bị
+escape `\uXXXX`), `tests/test_publish_runner.py` (5 test tích hợp Postgres thật — chèn thẳng
+1 dòng vào `gold.mart_daily_digest` không qua dbt, dọn dẹp ở fixture, gồm cả test hash-giống-
+hệt chạy 2 lần với `now` khác nhau). 229 test tổng (213 cũ + 16 mới), `ruff`/`mypy --strict`
+sạch trên toàn bộ `src/intel_bot/publish/` + `cli.py` + 3 file test mới.
+
+**Cố ý chưa làm** (đúng phạm vi "CHỈ thực hiện task 0.11"): chưa xoá `composite.py`/sửa
+`runner.py::_summarize_top_k()` như 5A đã ghi — việc này vẫn hoãn tới 0.12 (Dagster), vì lý
+do đã nêu ở 5A không đổi. Cũng chưa làm: git commit/push `docs-site/` (không được giao),
+CI ping heartbeat (§7.5, ngoài phạm vi Phase 0 theo AGENTS.md), archive pruning >7 ngày
+(DONE WHEN không yêu cầu, `archive_days` trong config hiện chỉ mang tính tài liệu).
+
+## 5C. Đã làm — 0.12 + 0.13 (Dagster asset graph + schedule + heartbeat)
+
+`dagster_project/` (definitions.py, partitions.py, schedules.py, assets/{bronze,silver,
+dbt_assets,serve}.py, resources/{postgres,llm,notifier}.py) — 18 asset, chạy thật qua
+`dagster dev` VÀ qua `dagster asset materialize` CLI (không chỉ import thành công — đã
+`RUN_SUCCESS` 3 lần thật trên DB dev, xem "Verify thật" bên dưới).
+
+**Lệch khỏi chữ đúng của đề bài — quan trọng nhất:** đề bài yêu cầu nạp dbt bằng
+`load_assets_from_dbt_project`. Hàm này ĐÃ BỊ GỠ khỏi `dagster-dbt` hiện hành — verify bằng
+`ImportError` thật (`dagster==1.13.17`, `dagster-dbt==0.29.17`, bản mới nhất `uv add` cài
+được lúc làm task), không đoán. API thay thế CHÍNH THỨC (không phải tôi tự chọn) là
+decorator `@dbt_assets` + `DbtProject` + `DbtCliResource`. Logic transform vẫn 100% do
+dbt/SQL quyết định — Python chỉ gọi `dbt build` qua subprocess, đúng tinh thần "KHÔNG viết
+lại logic dbt trong Python".
+
+**Asset không có trong bảng gốc §7.2 — bổ sung có chủ đích:** `articles_normalized` (Python,
+silver, daily). Bảng asset trong đề bài đi thẳng `raw_rss → stg_articles → articles_filtered`,
+nhưng `stg_articles` (dbt) là VIEW chỉ đổi tên cột (§11.2, task 0.10) — dedup cấp 1 + chuẩn
+hoá URL + cold-start (§8.2) là business logic THẬT đã có sẵn từ task 0.5 ở
+`normalize_partition()`, không thể nhét vào view và không thể bỏ qua (không có nó thì
+`silver.articles` — nguồn của view — luôn rỗng). Đã cân nhắc dừng lại hỏi trước khi thêm,
+nhưng đây là khoảng trống cơ học của bảng rút gọn trong đề bài (tương tự việc phải thêm
+`stg_article_summaries` ở 0.11), không phải một lựa chọn sản phẩm — nên làm luôn và ghi rõ
+ở đây, giống cách đã xử lý khoảng trống tương tự ở 0.11.
+
+**5 lỗi/API-gap phát hiện khi CHẠY THẬT (không phải đoán trước), theo đúng thứ tự gặp phải:**
+
+1. **`from __future__ import annotations` phá vỡ kiểm tra kiểu của dagster.** Asset có tham
+   số `context: AssetExecutionContext` báo lỗi sai be bét ("context phải là
+   AssetExecutionContext...") dù đúng kiểu — dagster so khớp class trực tiếp trên
+   `inspect.signature`, không resolve forward-ref chuỗi mà future-import tạo ra. Đã tự verify
+   bằng cách bật/tắt dòng import và chạy lại. **Toàn bộ file asset trong `dagster_project/`
+   vì vậy KHÔNG có `from __future__ import annotations`** — khác quy ước còn lại của repo,
+   ghi rõ trong docstring từng file.
+2. **Asset key dbt mặc định có prefix schema** (`gold/stg_articles` thay vì `stg_articles`)
+   → không khớp `deps=["stg_articles"]` mà asset Python khai, tạo ra node mồ côi song song
+   với node thật. Sửa bằng `DagsterDbtTranslator.get_asset_key()` tuỳ biến, bỏ hẳn schema
+   cho model/seed/snapshot.
+3. **dagster-dbt cấm hai `source()` khác nhau trỏ cùng một asset key.** Định ánh xạ cả
+   `score_quarantine` lẫn `source_health` về chung key với `article_scores`/`raw_rss` (vì
+   đúng là 2 asset đó ghi 2 bảng kia thật) → `DagsterDbtTranslator` bị Dagster báo lỗi ngay
+   khi import. Đành để 2 source đó KHÔNG override (thành asset "external" riêng, vẫn hiện
+   trên đồ thị, chỉ không gộp định danh).
+4. **`internal_asset_deps` của `@multi_asset` một khi đã dùng thì phải liệt kê ĐỦ mọi input
+   cho MỌI output** — không tự suy ra phần còn lại từ `deps=` chung. `article_scores_and_
+   summaries` (multi_asset gộp `run_score_partition()` — hàm này chấm điểm VÀ tóm tắt top-K
+   trong CÙNG một lần gọi, task 0.8 — thành 2 asset riêng cho đúng bảng §7.2) ban đầu thiếu
+   `articles_filtered` trong `internal_asset_deps` của output `article_scores` → CheckError.
+5. **`DailyPartitionsDefinition` mặc định KHÔNG coi "hôm nay" là partition hợp lệ** cho tới
+   sau nửa đêm hôm sau (`end_offset=0`: partition cuối phải kết thúc trước "now"). Vì lịch
+   chạy 05:00 cần materialize được partition "hôm nay" NGAY TRONG NGÀY đó, đã thêm
+   `end_offset=1` (`partitions.py`) — không có nó, `dagster asset materialize --partition
+   <hôm nay>` báo lỗi "must have a PartitionsDefinition containing the passed partition key".
+
+**Quyết định thiết kế đáng chú ý khác:**
+- **`LLM_PROVIDER` bắt buộc, KHÔNG default** (`dagster_project/resources/llm.py`) — khác
+  CLI (`--provider` default `mock`). Lịch 05:00 chạy không người xem; bài học trực tiếp từ
+  §5B (mock từng lọt vào gold vì chạy trên bài thật rồi quên đổi provider) — để asset tự
+  default về mock khi quên cấu hình là lặp lại đúng lỗi đó với một schedule TỰ ĐỘNG, rủi ro
+  cao hơn hẳn một lần gõ lệnh tay. `PostgresResource`/`NotifierResource` vẫn có default rỗng
+  (không nguy hiểm nếu thiếu — lỗi rõ ràng hoặc bỏ qua có log, không âm thầm sai dữ liệu).
+- **Metadata P6** (`rows_inserted`/`eligible`/`scored`/`cost_usd`/`latency_p50_95`/
+  `duration_seconds`, v.v.) ghi qua `MaterializeResult(metadata=...)` ở mọi asset Python;
+  asset dbt tự có test/check riêng qua `dbt build` (đã hiện trong Dagster UI dưới dạng Asset
+  Check, không phải tôi tự thêm).
+- **`mart_pipeline_health.sql` thêm hỗ trợ `--vars run_date`** (trước đó chỉ
+  `fct_article_score` có) — đồng bộ để asset `mart_pipeline_health` materialize được đúng
+  MỘT partition khi cần, không chỉ dựa vào lookback mặc định.
+- **`--select "*"` không dùng được trên Windows** khi gọi `dagster asset materialize` qua
+  CLI — Click tự glob `*` thành danh sách file trong thư mục hiện tại (đặc thù Windows, đã
+  verify bằng lỗi thật "Got unexpected extra arguments" liệt kê nguyên thư mục repo). Dùng
+  danh sách tên asset tường minh, phân tách dấu phẩy (xem README).
+- Resource `notifier` chỉ dùng cho heartbeat ở Phase 0 (không có sensor nào khác cần tới —
+  đúng rào chắn "KHÔNG cài sensor ở bước này").
+- `uv add dagster dagster-webserver dagster-dbt` kéo `dbt-core` xuống 1.11.12 (từ 1.12.0 ở
+  0.10/0.11, do ràng buộc phiên bản của `dagster-dbt`) — đã verify `dbt build` + `sqlfluff`
+  vẫn sạch 100% sau khi hạ phiên bản, không cần sửa SQL nào.
+
+**Verify THẬT trên DB dev (không chỉ đọc log, đã tự chạy):**
+- `dagster dev -f dagster_project/definitions.py` → HTTP 200, GraphQL `assetsOrError` trả
+  đúng 18 asset khớp thiết kế — đã tắt server test sau khi verify.
+- Materialize toàn đồ thị cho partition `2026-08-11` (hôm nay) → `RUN_SUCCESS`, heartbeat
+  `200 OK` thật tới URL healthchecks.io do người dùng cung cấp.
+- Materialize LẠI cùng partition `2026-08-11` → `RUN_SUCCESS` lần 2, heartbeat `200 OK` lần
+  2 — đếm lại mọi bảng (`bronze.raw_articles`, `silver.articles`, `gold.fct_article_score`,
+  `gold.mart_daily_digest`, `mart_pipeline_health.ingest_count`) **không đổi một dòng nào**.
+- Materialize partition `2026-08-10` (ngày trước, có dữ liệu ingest thật từ trước) →
+  `RUN_SUCCESS`, heartbeat `200 OK` lần 3. `fct_article_score`/`mart_daily_digest` không đổi
+  (12/12, các bài deepseek thật không bị đụng); `mart_pipeline_health` của 08-10 đổi nhẹ
+  (eligible 57→54) vì `normalize`/`filter` so tuổi bài với `datetime.now()` THẬT tại thời
+  điểm chạy lại (§8.2) — hành vi đúng thiết kế, không phải lỗi.
+- `docs-site/index.html` sau cùng: 12 bài (khớp `gold.mart_daily_digest`), 0 kết quả
+  `grep "giả lập"`. `gold.mart_pipeline_health` có dòng `2026-08-11` với `total_cost_usd =
+  0.004515` (chi phí deepseek thật từ trước, `mart_pipeline_health` tự nhặt đúng nhờ trục
+  lịch chung — xem 5A).
+- `ruff check`/`ruff format`/`mypy --strict` sạch trên toàn bộ `dagster_project/`;
+  `sqlfluff lint dbt_project --dialect postgres` vẫn sạch; 229/229 pytest cũ không đổi.
+
+**Cố ý chưa làm / biết còn thiếu — nói thẳng, không giấu:**
+- **Không có test pytest nào cho `dagster_project/`** — khác với mọi tầng trước (0.10/0.11
+  đều có test tự động). Verify hoàn toàn dựa vào chạy `dagster asset materialize`/`dagster
+  dev` thật (ghi log ở trên) — đủ để chứng minh DONE WHEN nhưng không có test hồi quy tự
+  động nếu code asset bị sửa sai sau này. Đây là khoảng trống thật, không phải lựa chọn có
+  chủ đích — nên vá ở task dọn dẹp/Phase 1.
+- `raw_github` để lại Phase 1 (rào chắn task 0.12 nói rõ).
+- Sensor (`run_failure_sensor`/`freshness_sensor`/`quarantine_sensor`/`cost_sensor`, §7.4)
+  và lịch 12:00/18:00 bổ sung (§7.3) — cả hai đều bị rào chắn task 0.12 cấm làm ở bước này.
+- Chưa triển khai Dagster daemon cho production (chạy schedule 05:00 thật mỗi ngày không
+  người canh) — Phase 0 chỉ cần chạy được qua `dagster dev`, triển khai production nằm
+  ngoài phạm vi.
+- Chưa xoá `src/intel_bot/score/composite.py`/sửa `runner.py::_summarize_top_k()` (nợ từ
+  5A) — task 0.12 không đụng tới luồng orchestration của lệnh `score` (asset gọi lại
+  nguyên hàm `run_score_partition()`), nên nợ này VẪN CÒN, chưa có task nào giao dọn nó.
 
 ## 6. Trạng thái DB dev hiện tại (lúc viết file này — sẽ lạc hậu, tự query lại)
 
 ```
-bronze.raw_articles: 92        (ingest_date=2026-08-10, 8 nguồn thật)
-silver.articles: 92            (57 scored, 35 excluded, 0 eligible)
-silver.article_scores: 69      (45 provider=mock cost=0, 12 provider=deepseek-v4-flash chi phí thật)
-silver.article_summaries: 27
+bronze.raw_articles: 174       (ingest_date 2026-08-10 + 2026-08-11 — 0.12 materialize thật ingest thêm)
+silver.articles: 115
+silver.article_scores: 88      (76 provider=mock cost=0, 12 provider=deepseek-v4-flash chi phí thật)
+silver.article_summaries: 45   (33 provider=mock, 12 provider=deepseek-v4-flash)
 silver.score_quarantine: 0
 gold.dim_source: 8             (SCD2 từ snap_sources, tất cả is_current=true — chưa có đổi tier)
-gold.fct_article_score: 57     (== số bài scored ở silver, dedup cấp 2 chưa gộp bản nào)
-gold.mart_daily_digest: 57     (cửa sổ 48h theo first_seen_at, tính từ lúc build — sẽ giảm dần theo thời gian)
-gold.mart_pipeline_health: 2   (2026-08-10: ingest/filter; 2026-08-11: score — pipeline_date là trục lịch chung, xem 5A)
+gold.fct_article_score: 12     (loại model 'mock' khỏi gold, xem 5B — không đổi qua các lần materialize 0.12)
+gold.mart_daily_digest: 12     (INNER JOIN summary + loại 'mock' — chỉ còn bài có tóm tắt THẬT)
+gold.mart_pipeline_health: 2   (2026-08-10: ingest/filter đã chạy lại qua Dagster; 2026-08-11: total_cost_usd=0.004515 thật)
+docs-site/index.html, articles.json, archive/2026-08-11.json  (sinh thật bởi asset published_site, 12 bài, 0 nội dung mock)
 ```
-Dữ liệu deepseek là request thật, tốn tiền thật (rất nhỏ, ~$0.008). Đừng chạy lại
-`--provider deepseek` trên diện rộng chỉ để test — dùng `--provider mock`.
+Dữ liệu deepseek là request thật, tốn tiền thật (rất nhỏ, ~$0.008, không tăng thêm ở 0.12 —
+`LLM_PROVIDER=mock` trong `.env` khi test Dagster). Đừng chạy lại `--provider deepseek`/
+`LLM_PROVIDER=deepseek` trên diện rộng chỉ để test — dùng mock. **Nhưng đừng chạy mock trên
+bài thật rồi để nguyên trong DB nếu định publish thử** — mock đã bị loại khỏi gold (var
+`non_production_model_names`) nên không lộ ra trang công khai, nhưng vẫn tốn công `dbt run`
+vô ích và làm nhiễu `silver.article_scores`. `bronze.raw_articles`/`silver.articles` tăng
+đáng kể so với các mốc trước — do task 0.12 tự materialize `raw_rss` thật (ingest RSS thật)
+nhiều lần để test idempotency/backfill, không phải lỗi.
 
 ## 7. Config đã điền thật (không phải placeholder)
 
@@ -267,17 +486,24 @@ Dữ liệu deepseek là request thật, tốn tiền thật (rất nhỏ, ~$0.0
 | `config/sources.yaml` | 8 nguồn RSS đã verify HTTP 200 thật |
 | `config/rubric.yaml` | Rubric 4 tiêu chí, mốc 1/5/10 |
 | `config/keywords.yaml` | `blocklist:` (v2, đang dùng) + `groups:` (v1 legacy) |
-| `.env` | Có `DATABASE_URL`, `DEEPSEEK_API_KEY` thật (gitignored) — `.env.example` chỉ có placeholder rỗng |
+| `.env` | `DATABASE_URL`, `DEEPSEEK_API_KEY` thật + `LLM_PROVIDER=mock` + `HEARTBEAT_URL` thật (healthchecks.io, người dùng cung cấp — task 0.13). Gitignored — `.env.example` chỉ có placeholder rỗng/an toàn |
+| `config/app.yaml` | `publish.repo_url` = URL git remote thật (task 0.11); `publish.docs_site_dir`/`templates_dir` |
 
 ## 8. Test
 
-213 test Python, `uv run pytest tests/` — tất cả dùng Postgres THẬT (docker, cổng 5435) cho
-phần integration, KHÔNG mock DB; chỉ mock mạng (`httpx.MockTransport` hoặc `MockProvider`).
-Không cần biến môi trường nào để chạy phần contract/mock (task 0.7 trở đi tự chứng minh
-bằng `env -i`). `ruff`/`mypy --strict` chỉ chạy sạch trên file đã viết ở task 0.2 trở đi —
-code legacy (mục 4) còn nợ lint, không nằm trong phạm vi bất kỳ task nào.
+229 test Python (213 + 16 ở task 0.11), `uv run pytest tests/` — tất cả dùng Postgres THẬT
+(docker, cổng 5435) cho phần integration, KHÔNG mock DB; chỉ mock mạng (`httpx.MockTransport`
+hoặc `MockProvider`). Không cần biến môi trường nào để chạy phần contract/mock (task 0.7 trở
+đi tự chứng minh bằng `env -i`). `ruff`/`mypy --strict` chỉ chạy sạch trên file đã viết ở
+task 0.2 trở đi — code legacy (mục 4) còn nợ lint, không nằm trong phạm vi bất kỳ task nào.
 
-Riêng dbt (task 0.10): 35 data test qua `dbt test`/`dbt build` (`--project-dir dbt_project`,
-cần `DBT_PROFILES_DIR=dbt_project` hoặc `--profiles-dir dbt_project`) — độc lập với 213 test
-Python ở trên, không chạy qua `pytest`. `sqlfluff lint dbt_project --dialect postgres` sạch
-(macro bị `sqlfluff-templater-dbt` tự skip — giới hạn đã biết của templater, không phải lỗi).
+Riêng dbt (task 0.10 + 0.11 + 0.12): 54 data test qua `dbt test`/`dbt build` (`--project-dir
+dbt_project`, cần `DBT_PROFILES_DIR=dbt_project` hoặc `--profiles-dir dbt_project`) — độc
+lập với 229 test Python ở trên, không chạy qua `pytest`. `sqlfluff lint dbt_project
+--dialect postgres` sạch (macro bị `sqlfluff-templater-dbt` tự skip — giới hạn đã biết của
+templater, không phải lỗi).
+
+Riêng `dagster_project/` (task 0.12+0.13): **KHÔNG có test pytest** (xem 5C "cố ý chưa
+làm") — verify bằng chạy thật (`dagster dev`, `dagster asset materialize`) chứ không phải
+bằng bộ test tự động. `ruff check`/`ruff format`/`mypy --strict` sạch trên toàn bộ
+`dagster_project/`.

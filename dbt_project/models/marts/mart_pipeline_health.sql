@@ -6,13 +6,18 @@
     )
 }}
 
--- Metrics vận hành (PRODUCTION_PLAN §5.8, §13.3): một dòng một ngày. `pipeline_date` là một
--- trục lịch chung — không phải riêng ingest_date — vì §7.3 nói rõ bài ingest chiều hôm
--- trước có thể được chấm điểm sáng hôm sau (scored_at khác ngày với ingest_date của bài).
--- Vì vậy union tất cả các cột ngày liên quan (ingest_date, first_seen_date, scored_at,
+-- Metrics vận hành (PRODUCTION_PLAN §5.8, §13.3, §11.3): một dòng một ngày. `pipeline_date`
+-- là một trục lịch chung — không phải riêng ingest_date — vì §7.3 nói rõ bài ingest chiều
+-- hôm trước có thể được chấm điểm sáng hôm sau (scored_at khác ngày với ingest_date của
+-- bài). Vì vậy union tất cả các cột ngày liên quan (ingest_date, first_seen_date, scored_at,
 -- quarantine created_at, source_health fetch_date) thành một spine rồi LEFT JOIN từng
 -- nhóm metric vào — mỗi ngày phản ánh đúng hoạt động xảy ra trong ngày đó, bất kể hoạt
 -- động ấy thuộc về bài được ingest ngày nào.
+--
+-- `--vars '{run_date: YYYY-MM-DD}'` (thêm ở task 0.12 để asset Dagster
+-- `mart_pipeline_health` materialize được một partition cụ thể — cùng mẫu
+-- fct_article_score.sql) ghi đè lookback bằng đúng một ngày. Không có run_date thì dùng
+-- lookback mặc định như cũ.
 with dates as (
     select ingest_date as pipeline_date
     from {{ source('bronze', 'raw_articles') }}
@@ -111,9 +116,13 @@ left join
     on dates.pipeline_date = source_health_daily.pipeline_date
 
 {% if is_incremental() %}
-    where dates.pipeline_date >= (
-        select
-            max(prior_run.pipeline_date) - {{ var('mart_pipeline_health_lookback_days') }}
-        from {{ this }} as prior_run
-    )
+    {% if var('run_date', none) is not none %}
+        where dates.pipeline_date = '{{ var("run_date") }}'::date
+    {% else %}
+        where dates.pipeline_date >= (
+            select
+                max(prior_run.pipeline_date) - {{ var('mart_pipeline_health_lookback_days') }}
+            from {{ this }} as prior_run
+        )
+    {% endif %}
 {% endif %}

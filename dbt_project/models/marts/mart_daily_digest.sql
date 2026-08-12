@@ -33,7 +33,14 @@ select
     -- "một dòng một bài" (§5.8) loại trừ việc explode theo từng industry_tag (sẽ ra nhiều
     -- dòng cho bài đa ngành). Lấy tag đầu tiên làm nhóm ngành chính để section hoá trang
     -- digest (§12.4); bài không có tag nào rơi vào 'uncategorized'.
-    coalesce(articles.industry_tags[1], 'uncategorized') as industry_group
+    coalesce(articles.industry_tags[1], 'uncategorized') as industry_group,
+    -- current_timestamp được Postgres đánh giá MỘT LẦN cho cả câu lệnh (kể cả ở WHERE bên
+    -- dưới) — mọi dòng trong cùng một lần build mang đúng một giá trị. Publish job (task
+    -- 0.11) đọc cột này làm "thời điểm chạy pipeline" hiển thị ở header (§12.4) mà không
+    -- cần đọc bảng nào khác ngoài mart_daily_digest — và vì bảng này là `table` tĩnh
+    -- (không phải view), giá trị không đổi giữa các lần publish đọc lại cùng một bản build,
+    -- nên publish chạy 2 lần cho cùng dữ liệu vẫn ra file giống hệt.
+    current_timestamp as digest_built_at
 from {{ ref('fct_article_score') }} as fct
 inner join {{ ref('stg_articles') }} as articles
     on fct.article_id = articles.article_id

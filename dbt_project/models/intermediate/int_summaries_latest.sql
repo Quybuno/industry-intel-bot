@@ -5,6 +5,13 @@
 -- hiển thị trên digest, không phân biệt prompt_version/model_name nào sinh ra nó. Một
 -- article_id có thể có nhiều summary (viết lại bằng model mạnh hơn, §5.4) — giữ bản
 -- created_at gần nhất.
+--
+-- Loại provider test/CI (var('non_production_model_names'), vd. 'mock') TRƯỚC khi xếp hạng
+-- mới nhất — MockProvider sinh text placeholder cố định ("Gạch đầu dòng giả lập số N...",
+-- score/providers/mock.py) để test đường contract/DB, không phải tóm tắt thật. Phát hiện
+-- được khi publish thật (task 0.11) hiển thị nguyên văn placeholder này lên digest công
+-- khai — một bài chỉ có tóm tắt từ provider test coi như CHƯA có tóm tắt thật, không vào
+-- mart_daily_digest (INNER JOIN, xem mart_daily_digest.sql).
 with ranked_summaries as (
     select
         stg_article_summaries.summary_id,
@@ -19,6 +26,7 @@ with ranked_summaries as (
             order by stg_article_summaries.created_at desc
         ) as recency_rank
     from {{ ref('stg_article_summaries') }} as stg_article_summaries
+    where {{ is_production_model('stg_article_summaries.model_name') }}
 )
 
 select

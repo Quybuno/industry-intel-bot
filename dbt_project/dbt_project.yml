@@ -81,3 +81,12 @@ vars:
   digest_window_hours: 48
   fct_article_score_lookback_days: 3
   mart_pipeline_health_lookback_days: 3
+
+  # Provider KHÔNG đại diện nội dung thật (score/providers/mock.py — "Test / CI" theo bảng
+  # provider ở AGENTS.md/§10.2, sinh text placeholder cố định kiểu "Gạch đầu dòng giả lập...").
+  # int_scores_latest/int_summaries_latest loại các model này TRƯỚC khi chọn bản mới nhất —
+  # một bài chỉ có điểm/tóm tắt từ các model này coi như CHƯA được chấm/tóm tắt thật, không
+  # được vào gold (fct_article_score/mart_daily_digest). Phát hiện qua publish thật (task
+  # 0.11): dữ liệu dev trộn lẫn provider mock (test) và deepseek (thật) trên CÙNG batch bài
+  # thật, nên gold vô tình lẫn nội dung giả lập nếu không lọc ở đây.
+  non_production_model_names: ["mock"]

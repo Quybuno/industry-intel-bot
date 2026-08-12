@@ -54,6 +54,9 @@ models:
       - name: canonical_url
         tests:
           - not_null
+      - name: digest_built_at
+        tests:
+          - not_null
 
   - name: mart_pipeline_health
     description: Một dòng một ngày — metrics vận hành (§5.8).
