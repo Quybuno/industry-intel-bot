@@ -508,7 +508,7 @@ làm") — verify bằng chạy thật (`dagster dev`, `dagster asset materializ
 bằng bộ test tự động. `ruff check`/`ruff format`/`mypy --strict` sạch trên toàn bộ
 `dagster_project/`.
 
-## 9. Đã làm — Vệ sinh repo (D8, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
+## 9. Đã làm — Vệ sinh repo (D8–D9, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
 
 Task KHÔNG đụng logic — chỉ dọn những gì một người ngoài mở repo lần đầu sẽ thấy trước tiên.
 
@@ -541,3 +541,20 @@ Bổ sung `.gitignore`: `.env.*` (kèm `!.env.example`), `*.db` (phạm vi TOÀN
 trong repo là nguồn sự thật hợp lệ, mọi `.db` từng thấy đều là SQLite rác của scaffold v1
 hoặc runtime state Dagster, nên ignore theo phần mở rộng là an toàn — xoá luôn dòng
 `data/*.db` cũ vì đã bị `*.db` bao trùm), `.tmp_dagster_home*/`, `dagster_home/`.
+
+**D9 — Xoá rác v1 không nằm trong danh sách legacy đã biết (mục 4):**
+- `my_postgres_project/` — dbt project mẫu (`dbt init`) ở gốc repo. Grep xác nhận
+  `my_postgres_project` chỉ tự tham chiếu trong `my_postgres_project/dbt_project.yml`
+  của chính nó, không nơi nào khác trong repo (kể cả `dbt_project/`) trỏ tới. Đã xoá.
+- `main.py`, `feeds.csv`, `github_repos.csv` ở gốc — scaffold v1. Grep xác nhận không còn
+  import/tham chiếu (chỉ `scripts/fetch_rss.py`, cũng bị xoá cùng lượt, còn đọc
+  `feeds.csv`). Đã xoá.
+- `scripts/fetch_rss.py`, `init_db.py`, `seed_sources.py`, `show_data.py` — đã grep từng
+  file: không có console-script (`pyproject.toml [project.scripts]` chỉ có `intel-bot`),
+  không file nào khác trong `src/`, `tests/`, `dagster_project/` import chúng. 3/4 file tự
+  import các module legacy ở mục 4 (`db.session`, `db.models`, `jobs.ingest_job`) —
+  nhưng bản thân các script này không ai gọi. Đã xoá cả 4 (thư mục `scripts/` giờ rỗng).
+- `spike/spike.py` — GIỮ theo yêu cầu (giá trị lịch sử Phase −1). Thêm đoạn ghi rõ ngay đầu
+  docstring: "CODE SPIKE MỘT LẦN — KHÔNG THUỘC PIPELINE CHÍNH THỨC", không CLI/asset nào
+  gọi tới, không bảo trì theo chuẩn code pipeline.
+

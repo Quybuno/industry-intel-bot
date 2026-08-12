@@ -1,5 +1,10 @@
 """Spike (Phase -1) — trả lời 3 câu hỏi kiến trúc trước khi xây pipeline thật.
 
+CODE SPIKE MỘT LẦN — KHÔNG THUỘC PIPELINE CHÍNH THỨC. Giữ lại vì giá trị lịch sử
+(quyết định kiến trúc ở Phase -1 dựa trên kết quả chạy file này), không có CLI/asset
+nào của `src/intel_bot`/`dagster_project` gọi tới nó và không được bảo trì theo cùng
+chuẩn với code pipeline (AGENTS.md mục 3).
+
 File này ĐỘC LẬP, không phụ thuộc vào `src/intel_bot`. Lưu tạm bằng SQLite
 (`spike/spike.db`). Chạy tay:
 
