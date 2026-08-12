@@ -169,13 +169,13 @@ cho lợi ích thuần packaging, và vi phạm tinh thần AGENTS.md mục 5.5 
   (`config.py`, `db/health.py`, `observability/logging.py`) sẽ dọn nốt ở D3 vì D3 yêu cầu
   `src/` sạch toàn bộ.
 
-## 4. Code v1 legacy còn trong repo — KHÔNG dùng, chỉ để import không vỡ
+## 4. Code v1 legacy còn trong repo — KHÔNG dùng, chỉ để import không vỡ — **ĐÃ XOÁ ở D3**
 
 Scaffold task 0.1 là kiến trúc ORM/SQLite hoàn toàn khác (không phân tầng bronze/silver).
 Từ task 0.4 trở đi, mỗi lần một module v2 (Core, không ORM) thay thế module v1 cùng tên
 chức năng, phần v1 bị tách sang file `legacy_*.py` hoặc giữ nguyên KHÔNG SỬA, chỉ để các
-import chưa dọn không vỡ. Danh sách file legacy, an toàn xoá ở một task dọn dẹp riêng
-(chưa ai giao việc này):
+import chưa dọn không vỡ. Danh sách dưới đây (+ 2 file phát hiện thêm khi làm D3, xem mục
+10) đã xoá hết — mục này giữ lại làm lịch sử, KHÔNG còn đúng với code hiện tại.
 
 - `src/intel_bot/db/models.py`, `db/repositories.py`, `db/session.py` — ORM, bảng phẳng
   không có schema bronze/silver/gold, không ai gọi từ CLI.
@@ -189,7 +189,9 @@ import chưa dọn không vỡ. Danh sách file legacy, an toàn xoá ở một 
 - `src/intel_bot/score/openai_client.py` — client OpenAI kiểu SDK cũ (`openai<1.0`,
   không tương thích `openai>=1.0.0` đã pin trong `pyproject.toml`). KHÔNG được `ruff
   format` cả thư mục `score/` — sẽ format nhầm file này (đã xảy ra 2 lần, phải
-  `git checkout` lại). Format từng file cụ thể, không format nguyên thư mục.
+  `git checkout` lại). Format từng file cụ thể, không format nguyên thư mục. **Gotcha này
+  hết áp dụng từ D3** (file đã xoá) nhưng vẫn giữ thói quen format từng file, không format
+  nguyên thư mục `score/` (quy tắc chung, không riêng gotcha cũ).
 
 ## 5A. Đã làm — 0.10 (dbt: staging + intermediate + marts)
 
@@ -705,3 +707,45 @@ dùng chọn: **một lệnh CLI `score` duy nhất, tự gọi `dbt build` bên
 `["src/intel_bot"]`) + `src/__init__.py` rỗng mới. Verify: `uv run intel-bot doctor` chạy
 thật, `uv run pytest` 223/223 pass, `mypy --strict`/`ruff check` trên `src/` không sinh lỗi
 mới so với trước khi đổi (đã tự verify bằng `git stash -u` so sánh số lỗi trước/sau).
+
+**D3 — Xoá code v1 legacy (nợ từ mục 4):** đã xoá đúng 9 file liệt kê ở mục 4, cộng thêm
+2 file phát hiện khi grep xác nhận (không nằm trong danh sách gốc, nhưng cùng loại — chỉ
+được import bởi chính code legacy đang xoá):
+- `src/intel_bot/ingest/deduplicator.py` — dedup kiểu ORM (`sqlalchemy.orm.Session`,
+  `db.models.Article`), chỉ `jobs/ingest_job.py` import. `ingest/normalizer.py` (v2, đang
+  dùng thật) có content_hash/dedup riêng, không liên quan file này.
+- `src/intel_bot/ingest/source_defaults.py` — `RSS_SOURCES` HARDCODE danh sách URL nguồn
+  trong Python, đúng thứ AGENTS.md mục 3 cấm ("Tuyệt đối không hardcode... URL nguồn"). Chỉ
+  `ingest/__init__.py` (re-export) và `jobs/ingest_job.py` dùng.
+
+Danh sách đầy đủ đã xoá: `db/models.py`, `db/repositories.py`, `db/session.py`,
+`jobs/` (cả thư mục — `ingest_job.py`, `filter_job.py`, `__init__.py`, không còn gì khác bên
+trong nên xoá nguyên thư mục), `ingest/legacy_rss.py`, `ingest/legacy_normalizer.py`,
+`ingest/reddit_fetcher.py`, `ingest/github_fetcher.py`, `ingest/github_trending_fetcher.py`,
+`ingest/deduplicator.py`, `ingest/source_defaults.py`, `filter/legacy_keyword_filter.py`,
+`filter/embedding_filter.py`, `score/openai_client.py` — 17 file/1 thư mục.
+
+Sửa (không xoá) `filter/__init__.py` và `ingest/__init__.py` — bỏ import/export của các
+module đã xoá, giữ nguyên phần re-export module v2 còn sống (`keyword_filter`;
+`normalizer`/`rss_fetcher`). Grep xác nhận trước: không nơi nào trong repo import theo kiểu
+`from src.intel_bot.filter import X`/`from src.intel_bot.ingest import X` (package-level) —
+chỉ tự các `__init__.py` này dùng — nên sửa an toàn, không có import nào khác vỡ.
+
+**Dọn nốt để `src/` sạch mypy --strict + ruff check TOÀN BỘ (DONE WHEN D3, không chỉ xoá
+file):** sau khi xoá legacy, còn 6 lỗi nằm ở 3 file THẬT đang dùng (không phải legacy, không
+xoá) — sửa tại chỗ, không đổi hành vi:
+- `config.py`: `Settings.__init__` thiếu `-> None`; `load_config_dir()` thiếu annotation cho
+  biến `conf`. (`Settings`/`settings` chỉ còn được `observability/logging.py::setup_logging()`
+  dùng, và `setup_logging()` hiện KHÔNG ai gọi — có vẻ cũng là code chết, nhưng KHÔNG xoá vì
+  không nằm trong danh sách mục 4 và không thuộc phạm vi D3 — chỉ sửa type cho sạch.)
+- `observability/logging.py`: `log_event(..., **fields)` thiếu annotation → `**fields: object`.
+- `db/health.py`: `check_connection()` trả `Any` (so sánh `.scalar_one() == 1`) thay vì `bool`
+  → bọc `bool(...)`.
+- `ruff format` áp riêng cho từng file vừa sửa (`config.py`, `observability/logging.py`) —
+  KHÔNG chạy `ruff format` nguyên thư mục nào.
+
+Verify cuối: `ruff check src/` — sạch. `mypy --strict src/` — sạch (26 file). `uv run pytest`
+223/223 pass (không đổi so với sau D2 — D3 không xoá/sửa test nào, đúng dự kiến vì không có
+test nào import code legacy, xem grep trong report). Dagster `Definitions` vẫn load được đủ
+18 asset key (`resolve_asset_graph().get_all_asset_keys()`), xác nhận D3 không phá `import`
+nào của `dagster_project/`.

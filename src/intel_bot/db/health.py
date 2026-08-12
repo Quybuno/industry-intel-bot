@@ -31,7 +31,7 @@ def get_database_url() -> str:
 
 def check_connection(connection: sa.Connection) -> bool:
     """Kiểm tra kết nối DB còn sống bằng `SELECT 1`."""
-    return connection.execute(sa.text("SELECT 1")).scalar_one() == 1
+    return bool(connection.execute(sa.text("SELECT 1")).scalar_one() == 1)
 
 
 def list_tables_by_schema(
