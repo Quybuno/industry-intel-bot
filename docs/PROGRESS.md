@@ -749,3 +749,41 @@ Verify cuối: `ruff check src/` — sạch. `mypy --strict src/` — sạch (26
 test nào import code legacy, xem grep trong report). Dagster `Definitions` vẫn load được đủ
 18 asset key (`resolve_asset_graph().get_all_asset_keys()`), xác nhận D3 không phá `import`
 nào của `dagster_project/`.
+
+**D4 — Test cho `dagster_project/` (nợ từ 5C "cố ý chưa làm"):** file mới
+`tests/test_dagster_definitions.py`, 27 test — CHỈ load `Definitions`/resource, KHÔNG
+materialize asset nào, nên không cần Postgres/LLM thật (tự verify bằng
+`env -u DATABASE_URL -u LLM_PROVIDER -u DEEPSEEK_API_KEY uv run pytest ...` — 27/27 vẫn pass).
+`PostgresResource`/`LLMResource` không tự kết nối lúc khởi tạo (chỉ khi gọi
+`.get_connection()`/`.build()`), `resolve_asset_graph()` chỉ phân tích tĩnh.
+
+Bám sát đúng 5 gạch đầu dòng D3 giao, cộng 1 mục KHÔNG còn áp dụng được sau D1 (nói rõ lý do
+thay vì lờ đi):
+1. **Định nghĩa hợp lệ:** `Definitions` load được, đúng 18 asset key, khớp bộ key mong đợi
+   (`test_definitions_load_with_expected_asset_count`).
+2. **Bắt lại lỗi prefix schema đã gặp ở 0.12** (`gold/stg_articles` mồ côi thay vì
+   `stg_articles`, PROGRESS.md mục 5C lỗi #2): `test_no_asset_key_has_stray_schema_prefix` —
+   assert không còn asset key nào dính prefix ngoài 2 exception đã biết
+   (`silver/source_health`, `silver/score_quarantine`, 2 source "external" không override).
+3. **Đồ thị phụ thuộc đúng bảng §7.2 + khoảng trống đã ghi nhận:** 18 test tham số hoá
+   (`test_asset_dependency_graph_matches_expected`, một test/asset), so khớp `parent_keys`
+   thật với bảng mong đợi hardcode trong file — bao gồm cả `articles_normalized` (bổ sung từ
+   0.12) và `article_summaries` đổi deps sang `fct_article_score` (D1).
+4. **`internal_asset_deps` của multi_asset (lỗi CheckError #4 ở 0.12) — KHÔNG CÒN ÁP DỤNG
+   ĐƯỢC:** D1 đã xoá hẳn multi_asset `article_scores_and_summaries` (tách thành hai `@asset`
+   độc lập, xem mục 9/10 D1) — không còn `internal_asset_deps` nào trong repo để test lại
+   đúng lớp lỗi này. Thay bằng `test_article_scores_and_summaries_are_independent_assets_not_multi_asset`
+   — assert cấu trúc mới (2 `AssetsDefinition` độc lập, không phải multi_asset) khiến lớp lỗi
+   đó không còn khả năng tái phát, thay vì giả vờ test một cơ chế đã bị xoá.
+5. **Partition `end_offset=1`:** `test_daily_partitions_end_offset_allows_today` (khẳng định
+   "hôm nay" nằm trong `get_partition_keys()` với `current_time` cố định) +
+   `test_daily_partitions_end_offset_zero_would_exclude_today` (đối chứng: dựng lại đúng
+   partition mặc định `end_offset=0` để chứng minh dòng cấu hình không phải thừa).
+6. **Resource `llm` không default:** 4 test — thiếu `LLM_PROVIDER` (rỗng) raise `Failure`;
+   tên provider không hỗ trợ raise `Failure`; `deepseek` thiếu API key raise `Failure`
+   (không tự bịa key); `mock` build được ngay không cần env/mạng nào.
+
+Verify: `ruff check`/`mypy --strict`/`ruff format --check` sạch trên file mới. `uv run
+pytest tests/` — **250/250 pass** (223 sau D3 + 27 mới) — vượt mốc 229 gốc dù D1 đã xoá 12
+test composite (11 + 1), đúng yêu cầu DONE WHEN "không test cũ nào bị xoá để cho xanh" (chỉ
+xoá test của code đã xoá theo D1, không xoá để né lỗi).
