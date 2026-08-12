@@ -169,6 +169,23 @@ cho lợi ích thuần packaging, và vi phạm tinh thần AGENTS.md mục 5.5 
   (`config.py`, `db/health.py`, `observability/logging.py`) sẽ dọn nốt ở D3 vì D3 yêu cầu
   `src/` sạch toàn bộ.
 
+### 3.5 Ổ C gần đầy (2026-08-12) — Docker Desktop WSL disk đã relocate sang ổ D
+
+Không phải lỗi code, nhưng ảnh hưởng trực tiếp tới việc chạy Docker/Postgres trên máy dev
+này — ghi lại để không dò lại từ đầu. Ổ C chỉ còn 2.1GB trống giữa lúc làm task 1.2. Điều tra
+thật (không đoán): repo đã nằm sẵn trên ổ D; `uv`/`pip` cache là **junction trỏ sang
+`D:\Cache\uv`/`D:\Cache\pip`** từ trước (không chiếm ổ C thật, dù `Get-ChildItem -Recurse`
+báo dung lượng theo junction); thứ THẬT SỰ chiếm ổ C là **Docker Desktop WSL disk
+(`%LOCALAPPDATA%\Docker\wsl`, ~10.4GB)**. Trước khi đổi: backup `pg_dump` (format custom)
+DB `intel_bot` ra `D:\db-backups\` (đã verify `pg_restore -l` đọc được, 71 TOC entries) —
+phòng khi Docker Desktop's "Disk image location" (Settings → Resources → Advanced) di chuyển
+lỗi. Đổi qua GUI (không tự động hoá được — không có quyền điều khiển GUI) → Docker Desktop tự
+di chuyển + Apply & Restart → container `industry-intel-bot-postgres-1` exit code 255 (bị
+Docker Desktop restart), `docker compose up -d postgres` khởi động lại — **dữ liệu còn
+nguyên** (đã verify đếm lại bronze/gold khớp trước/sau). Ổ C: 2.1GB → 17.4GB trống. **Máy này
+`wsl -l -v` KHÔNG có distro `docker-desktop-data` riêng** (khác model 2-distro truyền thống)
+— nếu sau này cần thao tác WSL/Docker thủ công, đừng giả định cấu trúc chuẩn, kiểm tra lại.
+
 ## 4. Code v1 legacy còn trong repo — KHÔNG dùng, chỉ để import không vỡ — **ĐÃ XOÁ ở D3**
 
 Scaffold task 0.1 là kiến trúc ORM/SQLite hoàn toàn khác (không phân tầng bronze/silver).
@@ -958,3 +975,497 @@ của plan (§8.5 dòng 636).
 **Cố ý CHƯA làm** (vì lý do trên, chờ quyết định): `normalize`/`filter`/`score` cho
 partition 2026-08-12; đối chiếu số bài ELIGIBLE thật (chỉ có số RAW ingest, chưa qua
 cold-start/filter); mọi thay đổi liên quan tới 2 nguồn `openai_news`/`huggingface_blog`.
+
+**Cập nhật (task 1.2, cùng ngày 2026-08-12) — bằng chứng mới, CHƯA phải quyết định:** khi
+verify `raw_github` (mục 13), materialize nhầm `raw_rss` thật cho partition **2026-08-11**
+(lẽ ra chỉ định verify `raw_github`, xem "Sự cố" ở mục 13) vô tình tái hiện đúng vấn đề này
+lần thứ hai, dưới một partition khác. Bằng chứng thu được, người dùng chọn GIỮ LẠI thay vì
+dọn: `openai_news` dump lại **đúng 1124 dòng full-history** (giống hệt số liệu lần đầu) —
+xác nhận đây là ĐẶC TÍNH CỐ ĐỊNH của feed (không hỗ trợ conditional GET, không phải ngẫu
+nhiên "hôm đó lớn" như rủi ro đã nêu ở phương án 1 phía trên). Cold-start tự loại 1109/1124
+(`too_old`), 15 còn lại được mock chấm điểm với cost=$0, KHÔNG lọt gold
+(`non_production_model_names` chặn đúng). `huggingface_blog` KHÔNG dump lại (server trả
+304 — có vẻ nguồn này CÓ hỗ trợ conditional GET, khác với suy đoán ban đầu gộp chung 2
+nguồn). Việc này CỦNG CỐ phương án 1 (giữ nguyên nguồn, chấp nhận cold-start lọc, không tốn
+tiền) nhưng **KHÔNG tự chọn giùm** — 4 phương án ở trên vẫn treo, người dùng quyết định khi
+quay lại task 1.1.
+
+## 13. Đã làm — 1.2 GitHub Search fetcher (PRODUCTION_PLAN §4.1, §7.2, §8.1, §8.5, §24.5)
+
+`src/intel_bot/ingest/github_fetcher.py` (mới, kiến trúc v2 — KHÔNG liên quan
+`github_fetcher.py`/`github_trending_fetcher.py` v1 đã xoá ở D3) + `config/github_sources.yaml`
+(mới) + asset Dagster `raw_github` (`dagster_project/assets/bronze.py`). Bronze/silver dùng
+LẠI đúng bảng/hàm chuẩn hoá hiện có — không migration nào (schema `bronze.raw_articles` đã
+có sẵn `source_type` cho đúng 2 giá trị 'rss'/'github' từ migration 0002).
+
+**24.5 verify trước khi code — số liệu thật, không đoán (2026-08-12, qua docs.github.com):**
+- Search API authenticated (PAT): **30 request/phút** cho mọi endpoint search TRỪ
+  `/search/code`. `/search/code` riêng: **10 request/phút**, bắt buộc xác thực (module này
+  KHÔNG dùng endpoint đó). Unauthenticated: **10 request/phút**.
+  Nguồn: https://docs.github.com/en/rest/search/search,
+  https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+- `X-GitHub-Api-Version` hiện hành: `2026-03-10` (bản cũ `2022-11-28` là mặc định nếu bỏ
+  header — verify qua https://docs.github.com/en/rest/about-the-rest-api/api-versions).
+- `GITHUB_TOKEN` trong `.env` thật đang RỖNG (đã tự kiểm tra, không đoán) — người dùng chọn
+  chạy **unauthenticated** cho task này thay vì dừng lại chờ điền PAT.
+
+**Thiết kế đáng chú ý:**
+- **KHÔNG nhánh riêng trong `normalize_partition()`.** `github_fetcher.repo_to_payload()`
+  giữ NGUYÊN toàn bộ trường gốc GitHub trả về (P3) và THÊM 4 khoá alias
+  (`title`/`link`/`summary`/`updated_parsed`, lấy từ `full_name`/`html_url`/`description`/
+  `pushed_at`) — đúng những khoá `src/intel_bot/ingest/normalizer.py::parse_entry()` đã đọc
+  cho RSS, cùng tinh thần feedparser tự có cặp `published`/`published_parsed` song song.
+  `canonicalize_url()` đã tự rút gọn URL GitHub về `github.com/{owner}/{repo}` từ task 0.5,
+  không cần sửa gì. Test `test_repo_to_payload_is_parseable_by_shared_normalizer_without_branch`
+  verify trực tiếp `parse_entry()` đọc đúng payload đã shape, không mock lại normalizer.
+- **`config/github_sources.yaml` (khoá config MỚI, đã nêu tên/vị trí trước khi thêm) tách
+  RIÊNG khỏi `config/sources.yaml`:** file RSS nạp thẳng vào `gold.dim_source` qua
+  `seed_sources.csv` + dbt seed/snapshot (task 1.1) — gộp nguồn github vào đó kéo theo đổi
+  tầng dbt, vi phạm rào chắn "KHÔNG đụng tầng score/dbt/publish ở bước này". Hệ quả ĐÃ BIẾT,
+  không phải bug: nguồn github chưa có dòng nào trong `dim_source`, nên
+  `macros/scoring.sql::source_tier_score()` trả 0 cho các bài này (nhánh "tier không khớp
+  map nào" đã có sẵn từ task 0.10, không crash) — `credibility_blended` tạm thời chỉ còn
+  20% điểm LLM cho tới khi có task riêng đưa nguồn github vào `seed_sources.csv`.
+- **5 truy vấn (`github_ai`/`github_construction`/`github_hvac`/`github_manufacturing`/
+  `github_iot`), khớp đúng 5 tag của `INDUSTRY_TAGS`, đã verify THẬT** bằng gọi trực tiếp
+  `api.github.com/search/repositories` (unauthenticated) trước khi ghi vào config — không
+  suy đoán topic nào hoạt động: `topic:llm`/`topic:iot` KHÔNG kèm ngưỡng `stars:>N` với
+  `sort=updated` trả về gần như toàn dự án hobby/nhiễu (đã tự thấy: "New-Grad-Data-Science-
+  Jobs-2027", bot crypto…) — thêm `stars:>N` mới lọc ra tín hiệu chất lượng thật
+  (`vllm-project/vllm`, `huggingface/transformers`, `FreeCAD/FreeCAD`, `apache/plc4x`,
+  `frappe/erpnext`…). Reuse khoá config CŨ `ingest.github_per_source` (đã có sẵn trong
+  `config/app.yaml` từ trước, không ai xoá khi dọn v1 legacy) làm `per_page` — không thêm
+  khoá mới cho việc này.
+- **Rate limit + backoff (P4):** chạy TUẦN TỰ (không đồng thời — ngân sách chia sẻ chung),
+  đọc `X-RateLimit-Remaining` + bắt 403/429 sau MỖI request; vượt hạn mức → log warning
+  `event=github_rate_limited`, dừng sạch phần truy vấn còn lại, trả `rate_limited=True`,
+  KHÔNG raise (test `test_rate_limited_response_stops_cleanly_without_raising`: 403 ở truy
+  vấn 1 → truy vấn 2 KHÔNG hề chạy). Một truy vấn lỗi thường (vd. 422 cú pháp sai) KHÔNG làm
+  hỏng các truy vấn khác — khác hành vi dừng sạch của rate limit (test
+  `test_one_query_error_does_not_abort_other_queries`).
+- **`GITHUB_TOKEN` rỗng KHÔNG raise Failure** ở asset (khác resource `llm` task 0.12) — GitHub
+  Search API tự thân hỗ trợ unauthenticated, không phải một cấu hình thiếu sót cần chặn cứng;
+  chỉ log rõ đang chạy ở hạn mức thấp hơn (10 thay vì 30 req/phút).
+- **`articles_normalized` (`dagster_project/assets/silver.py`) đổi `deps=["raw_rss"]` →
+  `deps=["raw_rss", "raw_github"]`** — cách duy nhất đổi để tích hợp asset mới vào đồ thị
+  hiện có, đúng như đề bài yêu cầu.
+- **Khoảng trống ĐÃ BIẾT trên đồ thị Dagster (không sửa được mà không đụng tầng dbt):**
+  `mart_pipeline_health` (dbt) đếm `source('bronze', 'raw_articles')` KHÔNG lọc
+  `source_type` (đã đọc SQL xác nhận — số liệu ĐÚNG, tự động gồm cả bài github), nhưng cạnh
+  phụ thuộc HIỂN THỊ trên đồ thị Dagster của node đó chỉ trỏ về `raw_rss`, không có
+  `raw_github` — do `_SourceAwareDbtTranslator` (`dagster_project/assets/dbt_assets.py`) chỉ
+  ánh xạ 1-1 `(schema, table) -> asset_key`, và cả 2 asset Python cùng ghi CHUNG một bảng vật
+  lý `bronze.raw_articles` nên dbt chỉ thấy được MỘT `source()`. Sửa đúng cần tách source dbt
+  hoặc viết lại translator — đụng tầng dbt, ngoài phạm vi task này, không tự sửa.
+
+**Test (`tests/test_github_ingest.py`, 10 test, mock mạng bằng `httpx.MockTransport` — không
+gọi API thật):** 3 unit cho `repo_to_payload()` (giữ nguyên trường gốc + thêm alias, xử lý
+`description=None`, payload parse được bởi `parse_entry()` dùng chung), 3 unit cho
+`is_rate_limited_response()` (403/429, `X-RateLimit-Remaining=0`, response bình thường), 4
+integration Postgres thật (ghi bronze từ fixture, idempotent chạy 2 lần, dừng sạch khi rate
+limit, một truy vấn lỗi không hỏng truy vấn khác). `tests/test_dagster_definitions.py` cập
+nhật: 18→19 asset, `raw_github: frozenset()`, `articles_normalized` thêm `raw_github` vào
+deps mong đợi. `ruff check`/`ruff format --check`/`mypy --strict` sạch trên toàn bộ file mới
++ sửa. `uv run pytest tests/` → **266/266 pass** (255 trước + 11 mới: 10 github + 1 dep mới).
+
+**Verify THẬT trên DB dev (không chỉ mock, đã tự chạy — unauthenticated):**
+- `dagster asset materialize --select "raw_github" --partition 2026-08-11` → `RUN_SUCCESS`,
+  **25 dòng thật** ghi vào `bronze.raw_articles` (`source_type='github'`, 5 nguồn × 5
+  repo/nguồn), `silver.source_health` có đủ 5 dòng `http_status=200 error_message=NULL`.
+- Chạy LẠI cùng lệnh (~1 phút sau) → `RUN_SUCCESS` lần 2, **0 nhóm `payload_hash` trùng**
+  (`GROUP BY payload_hash HAVING COUNT(*)>1` → rỗng) — nhưng tổng dòng tăng 25→29, KHÔNG
+  phải lỗi dedup: 4 repo có `pushed_at` mới hơn giữa 2 lần gọi (repo hot, mới có commit) nên
+  payload thật sự KHÁC → `payload_hash` khác → ghi dòng mới là ĐÚNG hành vi P1/P2 (bronze
+  bất biến, chỉ chặn trùng NGUYÊN VĂN). Đây KHÔNG phải phép thử idempotency sạch (nguồn sống
+  thay đổi giữa 2 lần gọi) — phép thử idempotency thật (payload cố định, phải cho
+  `rows_inserted=0` ở lần 2) nằm ở `test_ingest_twice_same_day_is_idempotent` (mock, đã pass).
+- `silver.articles` sau khi `articles_normalized` chạy: **34 dòng `source_id LIKE
+  'github_%'`**, `canonical_url` dạng `github.com/{owner}/{repo}` đúng chuẩn, **0 nhóm
+  `canonical_url` trùng** trong toàn bảng (không đụng bài RSS).
+- Materialize toàn bộ 17 asset buildable (thêm `raw_github` vào danh sách 16 asset ở mục 11)
+  cho partition **2026-08-11** (KHÔNG phải hôm nay 2026-08-12 — theo lựa chọn của người dùng,
+  xem mục 12 "Cập nhật"), `LLM_PROVIDER=mock` → **`RUN_SUCCESS`**, dbt `Completed successfully`
+  (`PASS=9 WARN=0 ERROR=0`), heartbeat `200 OK`. `gold.fct_article_score`/
+  `gold.mart_daily_digest` **giữ nguyên 12/12** (KHÔNG đổi — bài github chưa vào gold, đúng
+  thiết kế đã ghi ở trên vì thiếu `dim_source`), **0 dòng mock lọt `mart_daily_digest`**.
+
+**Sự cố xảy ra trong lúc verify — đã báo người dùng ngay, không giấu:** để chọn asset cho
+lệnh materialize toàn đồ thị, copy nguyên danh sách `--select` từ mục 11 (có `raw_rss`) mà
+không nghĩ kỹ: `raw_rss` không "time-travel" theo partition — materialize nó cho BẤT KỲ
+partition nào cũng fetch feed sống TẠI THỜI ĐIỂM CHẠY rồi gắn nhãn `ingest_date` theo
+partition đó. Chọn `2026-08-11` để TRÁNH đụng quyết định 1.1 đang treo ở `2026-08-12`, nhưng
+vì có `raw_rss` trong `--select`, đã vô tình tái hiện đúng sự cố `openai_news` full-history
+dump (1124 dòng, giống hệt số liệu lần đầu) — lần này dưới nhãn `2026-08-11`. Không tốn tiền
+thật (`LLM_PROVIDER=mock`, cost tổng không đổi), không lọt gold — nhưng là hành động ngoài ý
+định, đã dừng ngay, báo cáo đầy đủ số liệu, hỏi người dùng trước khi làm gì tiếp. Người dùng
+chọn GIỮ LẠI dữ liệu (không dọn) — chi tiết đầy đủ + hệ quả cho quyết định 1.1 ở mục 12
+"Cập nhật". **Bài học cho task sau: KHÔNG copy nguyên `--select` có `raw_rss`/bất kỳ asset
+fetch-nguồn-sống nào vào lệnh materialize trừ khi THẬT SỰ cần ingest lại — asset dạng này
+không an toàn để "chỉ chạy cho đủ đồ thị".**
+
+**Cố ý chưa làm / ngoài phạm vi task 1.2:**
+- Đưa nguồn github vào `gold.dim_source`/`seed_sources.csv` — rào chắn "KHÔNG đụng tầng
+  score/dbt/publish" cấm ở bước này; hệ quả là `credibility_blended` của bài github tạm thời
+  chỉ có 20% trọng số (điểm LLM thô), thiếu hẳn 80% source tier.
+  Anomaly detection + Freshness SLA — thuộc task 1.4/1.5 kế tiếp (rào chắn: chỉ 1.2).
+- Không đụng CLI `ingest` (`cli.py`) — chỉ asset Dagster gọi `github_fetcher` trực tiếp, đúng
+  đề bài chỉ giao "Asset Dagster `raw_github`", không giao tích hợp CLI. `run_github_ingest()`
+  vẫn là hàm module-level tái dùng được cho CLI sau này nếu cần, không phải rào cản.
+- Không sửa `_SourceAwareDbtTranslator` để nối cạnh `raw_github → mart_pipeline_health` trên
+  đồ thị Dagster (xem "Khoảng trống ĐÃ BIẾT" ở trên) — đụng tầng dbt, ngoài phạm vi.
+- Chưa xin/điền `GITHUB_TOKEN` thật — đang chạy unauthenticated (10 req/phút), đủ cho 5 truy
+  vấn/ngày hiện tại; nâng lên 30 req/phút bằng cách điền PAT vào `.env` khi cần mở rộng số
+  truy vấn/nguồn.
+
+**Bổ sung — verify end-to-end bằng `LLM_PROVIDER=deepseek` THẬT (cùng ngày, theo yêu cầu
+"muốn hiện chính xác data trong csdl lên web"):** phát hiện thêm một gotcha khi làm việc này,
+không thuộc code của task 1.2 nhưng ảnh hưởng trực tiếp tới việc bài github lên trang được
+hay không — ghi lại đây cho đủ:
+
+- **65 bài (19 github + 46 rss, partition 2026-08-11) từng bị mock chấm khi tôi verify task
+  1.2 KẸT VĨNH VIỄN ở `status='scored'`** — `run_score_partition()`/`load_eligible_articles()`
+  chỉ chọn `status='eligible'`; MỘT KHI đã có bất kỳ điểm nào (kể cả mock), status không bao
+  giờ tự quay lại 'eligible' để được chấm lại bằng provider thật. Đây là hệ quả CHƯA từng gặp
+  của việc chạy mock trên dữ liệu thật (khác lỗi 5B — lỗi đó là mock LỌT gold, đã có hàng rào
+  `non_production_model_names`; lỗi NÀY là mock làm bài không bao giờ được chấm thật nữa).
+  Đã UPDATE thủ công `status='eligible'` cho đúng 65 bài này (xác định qua điều kiện "có
+  đúng 1+ dòng `article_scores` và TẤT CẢ đều `model_name='mock'`" — không đụng bài nào khác)
+  sau khi hỏi và được người dùng đồng ý tốn ~$0.02 thật.
+- `score --provider deepseek --date 2026-08-11` chạy thật: **scored=65 quarantined=0
+  summarized=15, cost=$0.03024431200** (đúng số thật, không phải ước tính). `dbt build
+  --select mart_daily_digest` → **12 → 27 bài**. `publish` → `docs-site/index.html`/
+  `articles.json` có 27 bài thật, 0 dòng mock.
+- **0/19 bài github lọt vào 27 bài đó** — đã xếp hạng composite thật để biết vì sao: bài
+  github gần nhất (`github_ai`, composite=5.90) THIẾU ĐÚNG 0.22 điểm so với hạng #15 (cắt
+  tại 6.12) để vào top-K tóm tắt. Sát nút — khớp đúng dự đoán ở phần "Khoảng trống ĐÃ BIẾT"
+  phía trên: `credibility_blended` của bài github chỉ 0.2–2.0 (thang 10) vì thiếu 80% trọng
+  số source-tier (chưa có trong `gold.dim_source`). Có tier dù chỉ tier 2-3 gần như chắc chắn
+  đủ bù khoảng cách này. **Việc thêm nguồn github vào `dim_source`/`seed_sources.csv` — đụng
+  tầng dbt, ngoài phạm vi task 1.2 — là bước tiếp theo tự nhiên nếu muốn bài github thật sự
+  xuất hiện trên trang, chưa làm, chờ quyết định riêng.**
+
+## 14. Đã làm — 1.4 Anomaly checks + 1.5 Freshness policy (PRODUCTION_PLAN §13.3, §13.4, §18.2)
+
+`dbt_project/tests/assert_ingest_count_no_anomaly.sql` + 5 test singular khác (severity=warn)
++ 9 var mới trong `dbt_project.yml` (task 1.4) — `dagster_project/checks.py` mới, gắn
+`FreshnessPolicy` lên 3 asset qua `Definitions.map_resolved_asset_specs()` (task 1.5).
+
+### 14.1 Mâu thuẫn phát hiện TRƯỚC khi code — đã báo cáo, người dùng chọn hướng
+
+Đề bài mở đầu bằng "`gold.mart_pipeline_health` đã có từ task 0.10 với đầy đủ cột
+funnel/cost/latency" — **SAI, đã verify bằng cách đọc thẳng SQL thật** (không phải PROGRESS.md
+mục 5A, file đó cũng không nói rõ): bảng thật lúc đó CHỈ có `pipeline_date, latency_p50/95_ms,
+ingest_count, eligible_count, excluded_count, excluded_ratio, quarantine_count,
+total_cost_usd, source_fail_count, computed_at` — **thiếu `mean_importance`,
+`stddev_importance`, một cột tag-rỗng, và một `scored_count` đúng trục ngày cho cost/bài** —
+4/6 kiểm tra §13.3 không thể viết được nếu chỉ đọc mart như hiện có. Đã dừng lại, trình bày
+đúng 2 phương án (mở rộng mart thêm cột / để test tự tính thẳng từ staging), người dùng chọn
+**mở rộng mart** (đúng tinh thần §18.2 "metrics nằm hết trong mart, trả lời được bằng SQL").
+
+**Cột mới thêm vào `mart_pipeline_health.sql` (additive — KHÔNG đổi logic cột cũ nào):**
+`scored_count`, `mean_importance`, `stddev_importance`, `empty_tag_count`, `empty_tag_rate`,
+`cost_per_article`, `quarantine_rate`. Tất cả tính trên CTE `cost_latency_daily` (trục
+`scored_at::date`, JOIN `stg_article_scores`→`stg_articles` lấy `industry_tags`), lọc
+`is_production_model()` (loại `mock` — bài học 5B, không để dữ liệu test lẫn vào theo dõi
+drift/chi phí thật). `quarantine_rate` dùng mẫu số `scored_count + quarantine_count`
+(KHÔNG dùng `eligible_count` có sẵn — khác trục ngày `first_seen_date`, sẽ sai). Mọi tỷ
+lệ/thống kê là NULL (không phải 0) khi ngày đó chưa chấm bài nào (P4 — không suy diễn).
+Model là `incremental`/`merge` nên cần `dbt run --full-refresh` một lần để backfill cột mới
+cho dòng cũ — đã chạy, verify bằng `SELECT` lại 3 dòng thật.
+
+### 14.2 6 kiểm tra bất thường (§13.3) — singular test, severity=warn
+
+| Test | Kiểm tra | Loại ngưỡng |
+|---|---|---|
+| `assert_ingest_count_no_anomaly` | Row count ingest lệch > 3σ / 14 ngày trước | Baseline cửa sổ |
+| `assert_quarantine_rate_reasonable` | quarantine_rate > 10% | Tuyệt đối/ngày |
+| `assert_importance_mean_no_drift` | mean_importance lệch > 1.0 / 7 ngày trước | Baseline cửa sổ |
+| `assert_importance_stddev_sufficient` | stddev_importance < 0.8 | Tuyệt đối/ngày |
+| `assert_empty_tag_rate_reasonable` | empty_tag_rate > 5% | Tuyệt đối/ngày |
+| `assert_cost_per_article_no_drift` | cost_per_article lệch tương đối > 50% / 7 ngày trước | Baseline cửa sổ |
+
+Mọi ngưỡng (3σ/10%/1.0/0.8/5%/50%/14 ngày/7 ngày) là `vars:` trong `dbt_project.yml`, không
+hardcode SQL — đã tự verify bằng cách đổi `anomaly_importance_stddev_min` 0.8→0.95, chạy lại:
+ngày 2026-08-11 (stddev thật = 0.888) đổi từ PASS sang WARN, revert lại thì PASS lại — chứng
+minh bằng SỐ LIỆU THẬT, không phải fixture giả.
+
+**severity=warn cho cả 6** (đề bài mục 3): `{{ config(severity="warn") }}` đầu mỗi file test —
+bất thường phải HIỆN ra (WARN trong output `dbt build`) nhưng không được làm `dbt build` exit
+khác 0, để `fct_article_score`/`mart_daily_digest` phía sau vẫn chạy tiếp. Đã tự verify: chèn
+thủ công 1 dòng `pipeline_date=2026-08-13, stddev_importance=0.3` (giả lập bất thường) →
+`dbt test` ra đúng `assert_importance_stddev_sufficient WARN 1`, **7 test còn lại vẫn PASS**,
+exit code THẬT = 0 (verify riêng, không qua pipe) → xoá dòng giả đi, `dbt build` toàn dự án
+lại **60/60 PASS 0 WARN** (không còn 1 warn nào sót lại).
+
+**Quy tắc dữ liệu tối thiểu (đề bài mục 4):** 3 kiểm tra có baseline (ingest/importance-mean/
+cost) dùng CHÍNH độ dài cửa sổ (14 hoặc 7) làm ngưỡng tối thiểu — `row_number() over (order by
+pipeline_date) > window_days` trên CHÍNH các dòng đã có trong `mart_pipeline_health` (không
+suy diễn ngày trống). Hiện tại DB dev chỉ có đúng 3 dòng `pipeline_date` (2026-08-10/11/12,
+đúng thực tế "hôm nay mới có 2-3 ngày lịch sử" đề bài nêu) — cả 3 kiểm tra baseline chưa từng
+đủ điều kiện đánh giá, PASS đúng vì "chưa đủ dữ liệu", không phải PASS giả bằng chia 0/so NULL
+(đã verify không có `/0` nào trong SQL — mọi phép chia có `nullif`/CASE guard trước). 3 kiểm
+tra ngưỡng tuyệt đối (quarantine/stddev/tag-rỗng) không cần quy tắc này — §13.3 không mô tả
+chúng theo cửa sổ lịch sử.
+
+### 14.3 Freshness SLA (§13.4) — API thật đã dùng, LỆCH có giải thích
+
+**Verify API 2 vòng, không đoán (đúng rào chắn mục 5):**
+1. `dir(dagster)` lọc "fresh" trên `dagster==1.13.17` cài thật → 6 hàm/lớp:
+   `FreshnessPolicy`, `LegacyFreshnessPolicy`, `apply_freshness_policy`,
+   `build_last_update_freshness_checks`, `build_sensor_for_freshness_checks` (không dùng —
+   rào chắn "không sensor"), `build_time_partition_freshness_checks`.
+2. Thử `build_last_update_freshness_checks` trước (docstring khớp — `severity` độc lập
+   ngưỡng thời gian). Load `Definitions` thật → dagster tự in
+   `SupersessionWarning: ...is superseded... Attach FreshnessPolicy objects to your assets
+   instead` — **bằng chứng runtime thật**, không phải đoán. Đổi sang
+   `FreshnessPolicy.time_window()` + `apply_freshness_policy()`. Gắn vào asset ĐÃ tồn tại
+   (không tự định nghĩa asset mới) cần `Definitions.map_resolved_asset_specs()` — bản đầu
+   dùng `map_asset_specs(selection=...)` (theo `inspect.signature`, có tham số `selection`
+   thật) nhưng CHẠY THẬT thì lỗi `CheckError: selection parameter is no longer supported...
+   Please use map_resolved_asset_specs instead` — **lỗi runtime thứ hai**, sửa theo đúng
+   thông báo, không tự đoán tên hàm khác.
+3. `map_resolved_asset_specs` tự bản thân in `PreviewWarning: ...currently in preview, and
+   may have breaking changes in patch version releases` — ghi nhận thẳng: API mới nhất của
+   Dagster cho freshness ở bản 1.13.17 vẫn đang preview, có thể đổi ở bản patch sau. Không có
+   lựa chọn nào khác ổn định hơn tồn tại (đã liệt kê đủ 6 API ở bước 1) — chấp nhận rủi ro
+   này, ghi rõ ở đây để không bị hỏi lại "sao dùng API chưa ổn định".
+
+**Lệch so với §13.4 — cần nói rõ:** `FreshnessPolicy.time_window()` bắt buộc `fail_window`;
+`warn_window` tuỳ chọn. §13.4 chỉ định nghĩa ĐÚNG 1 ngưỡng (26h) cho MỖI asset, với
+`raw_rss`/`article_scores` chỉ có mức Warning (không có mức Critical/fail nào được mô tả) —
+API hiện hành không biểu diễn được "chỉ WARN, không bao giờ FAIL". Đã KHÔNG suy diễn một
+`fail_window` gần 26h (sẽ biến "Warning" thành "Critical" giả ngay khi vừa vi phạm SLA, sai ý
+plan) — thêm khoá config MỚI `observability.freshness_fail_ceiling_hours: 168` (7 ngày,
+`config/app.yaml`) làm "trần an toàn" thuần kỹ thuật để API có giá trị hợp lệ, KHÔNG phải một
+SLA thật. `mart_daily_digest` (Critical) dùng ĐÚNG 26h làm `fail_window`, không có
+`warn_window` — khớp thẳng plan, không suy diễn gì.
+
+**Ánh xạ "Critical" (§13.4) sang Dagster:** `AssetCheckSeverity`/state của Dagster không có
+mức "CRITICAL" riêng — `TimeWindowFreshnessPolicy` chỉ có `fail_window`/`warn_window` (state
+PASS/WARN/FAIL/UNKNOWN). "Critical" của plan → `fail_window` (mức cao nhất sẵn có, không có
+`warn_window`) cho `mart_daily_digest`.
+
+**Verify THẬT qua GraphQL — đúng field Dagster UI thật sự gọi, không chỉ đọc object Python:**
+field `assetNodes.freshnessPolicy` (GraphQL) ánh xạ `LegacyFreshnessPolicy` (đã tự verify:
+introspect `__type(name: "FreshnessPolicy")` ra field `maximumLagMinutes`/`cronSchedule` —
+đúng chữ ký `LegacyFreshnessPolicy`, KHÔNG phải cái mình dùng) → trả `null` cho cả 3 asset,
+**KHÔNG phải bug, chỉ là field GraphQL cũ không biết tới `FreshnessPolicy` mới.** Field đúng
+là `assetNodes.internalFreshnessPolicy` — khởi `dagster dev` thật (port 3111), query GraphQL
+trực tiếp:
+```
+raw_rss:            failWindowSeconds=604800 (168h) warnWindowSeconds=93600 (26h)
+article_scores:      failWindowSeconds=604800 (168h) warnWindowSeconds=93600 (26h)
+mart_daily_digest:   failWindowSeconds=93600 (26h)   warnWindowSeconds=null
+articles_normalized: null (asset khác, KHÔNG bị đụng — verify selection chính xác)
+```
+Khớp đúng thiết kế. Đã tắt server test sau khi verify (`taskkill` PID lắng nghe port 3111,
+xác nhận `curl` connection refused).
+
+**Test:** `uv run pytest tests/` → **266/266 pass** (không đổi so với trước — freshness policy
+không đụng đồ thị dependency, `test_dagster_definitions.py` không cần sửa). `ruff check`/
+`mypy --strict dagster_project/` sạch 14 file.
+
+**Cố ý chưa làm / ngoài phạm vi (đúng rào chắn task 1.4/1.5):**
+- KHÔNG cài sensor (`run_failure_sensor`/`freshness_sensor`/`quarantine_sensor`/`cost_sensor`,
+  §7.4) — dù `build_sensor_for_freshness_checks` tồn tại sẵn, không gọi.
+- KHÔNG gửi Telegram/Slack/email — việc GỬI cảnh báo đi đâu là prompt 15 (§18.3), đề bài nói
+  rõ.
+- Không đưa nguồn github (task 1.2) vào `mart_pipeline_health`/anomaly checks riêng — mọi
+  metric tính chung cả RSS lẫn github (không phân biệt `source_type`), đúng §13.3 (không có
+  yêu cầu tách theo nguồn).
+- Chưa thêm test cho chính `dagster_project/checks.py` (giống khoảng trống đã biết ở 5C/D4 —
+  `apply_freshness_policies()` verify bằng chạy thật + GraphQL, chưa có test pytest tự động
+  hồi quy nếu code này bị sửa sai sau — có thể vá bằng cách assert
+  `spec.freshness_policy_by_asset_key` kiểu D4 đã làm cho asset graph, để dành task dọn nợ).
+
+## 15. Đã làm — 1.6 Sensors + alert (PRODUCTION_PLAN §7.4, §18.3) — CODE XONG, CHỜ CREDENTIALS
+THẬT để verify hết DONE WHEN
+
+`src/intel_bot/observability/alerting.py` (mới, thuần/testable) + `dagster_project/sensors.py`
+(mới, 4 sensor) + mở rộng `NotifierResource.send_alert()` + lịch 12:00/18:00
+(`dagster_project/schedules.py`) + 3 khoá config mới + 3 biến môi trường mới.
+
+### 15.1 Kênh alert — đề bài để trống placeholder, đã hỏi
+
+Đề bài để nguyên `<Telegram bot | Slack webhook>` chưa điền — dừng hỏi theo đúng rào chắn
+AGENTS.md mục 5.7. `.env`/`.env.example` đã có sẵn `SLACK_WEBHOOK_URL` (rỗng) từ trước, nhưng
+người dùng chọn **Telegram** — thêm biến MỚI `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` (đúng đề
+bài gợi ý "token/URL ở biến môi trường TÊN BIẾN" do agent đặt tên).
+
+### 15.2 Mâu thuẫn §7.4 (4 tên sensor) vs §18.3 (6 điều kiện, nhiệm vụ 3 yêu cầu bám sát) —
+đã tự giải quyết, ghi rõ theo đúng rào chắn "báo cáo mâu thuẫn"
+
+2 bảng KHÔNG khớp 1-1. Cách giải quyết (chi tiết + lý do đầy đủ nằm trong docstring
+`dagster_project/sensors.py`, tóm tắt ở đây):
+
+| Sensor (tên theo §7.4) | Điều kiện THẬT SỰ implement (theo §18.3, ưu tiên vì nhiệm vụ 3 nói rõ) |
+|---|---|
+| `run_failure_sensor` | "Dagster run failed" (Critical) |
+| `freshness_sensor` | "mart_daily_digest rỗng" (Critical) — **KHÔNG phải ">26h"** của §7.4; SLA ">26h" đã có `FreshnessPolicy` (task 1.5), sensor đó CHƯA gắn gửi alert vì nhiệm vụ 1.5 chỉ "định nghĩa policy" |
+| `quarantine_sensor` | "Quarantine rate > 10%" + "Anomaly bất kỳ §13.3" (quarantine rate CHÍNH LÀ 1 trong 6 kiểm tra đó, không phải điều kiện thứ 7) + "> 30% nguồn fail" (không sensor nào trong §7.4 được đặt tên riêng cho điều kiện này — gộp vào đây, cùng nguồn dữ liệu `mart_pipeline_health`, giữ đúng "4 sensor") |
+| `cost_sensor` | "Cost tháng > 80% ngân sách" (Warning) — CHỈ cảnh báo, **KHÔNG** "tự chuyển sang model rẻ hơn" (§7.4 mô tả cho sensor này nhưng đó là auto-remediation, tính năng khác, nhiệm vụ 3 chỉ giao "điều kiện và mức") |
+
+### 15.3 Ngưỡng anomaly — MỘT nguồn duy nhất, không định nghĩa lần 2 (rào chắn nhiệm vụ 3)
+
+`src/intel_bot/observability/alerting.py::load_dbt_vars()` đọc THẲNG `dbt_project.yml` —
+cùng 9 var task 1.4 đã tạo, không hardcode số nào ở Python. Đã cân nhắc đọc thẳng
+`AssetCheckExecutionRecord` nội bộ của Dagster (kết quả 6 dbt test đã hiện thành Asset Check)
+thay vì đọc lại `mart_pipeline_health` bằng SQL — API đó là `NamedTuple(LoadableBy)` nội bộ
+lưu trữ (`DagsterInstance._event_storage_impl`), không dành cho code ngoài; chọn SQL tường
+minh, rủi ro thấp hơn dù phải LẶP LẠI logic so sánh (không lặp số ngưỡng). Test
+`test_load_dbt_vars_has_all_anomaly_thresholds_task_1_4` khẳng định 9 khoá đó khớp — đổi tên
+var ở dbt mà quên sửa Python thì test này rớt ngay, không âm thầm sai lệch.
+
+`> 30% nguồn fail` (§18.3) KHÔNG có var dbt tương ứng (task 1.4 không tạo — §13.3 không có
+kiểm tra này) → khoá config MỚI `observability.source_fail_rate_threshold: 0.30`
+(`config/app.yaml`) — đúng số §18.3 đã cho, không tự đặt số khác.
+
+### 15.4 Chống spam (nhiệm vụ 4)
+
+`context.cursor` của Dagster sensor — chuỗi JSON `{condition_key: iso_timestamp}` — Dagster
+tự lưu vào **run storage của chính Dagster instance** (Postgres/SQLite backend cấu hình ở
+`dagster.yaml`, KHÔNG phải biến Python trong bộ nhớ tiến trình) giữa các tick, **giữ nguyên
+qua daemon restart** (đọc lại đúng cursor cũ khi daemon khởi động lại). Chỉ áp dụng cho 3
+sensor POLLING (freshness/quarantine/cost) — `run_failure_sensor` KHÔNG cần: Dagster tự đảm
+bảo cursor nội bộ riêng của run-status sensor gọi hàm ĐÚNG MỘT LẦN mỗi lần run fail thật (một
+sự kiện, không phải trạng thái lặp lại mỗi tick), khác về bản chất với 3 sensor kia (poll lại
+CÙNG một trạng thái mỗi 60s, sẽ spam nếu không tự chống lặp). `alert_dedup_window_hours`
+(config/app.yaml, mặc định 6h) dùng chung cho cả 3.
+
+### 15.5 API sensor đã verify thật (dagster==1.13.17, không đoán)
+
+`dir(dagster)` lọc "sensor" → dùng `@run_failure_sensor` (built-in, khớp thẳng) + `@sensor`
+(generic, tự viết polling) cho 3 sensor còn lại. Resource lấy qua `context.resources.<key>`
+— mẫu chuẩn (KHÔNG phải API preview như `map_resolved_asset_specs` ở task 1.5).
+
+### 15.6 Lịch bổ sung 12:00/18:00 (nhiệm vụ 6)
+
+`ingest_only_job` (mới) chọn đúng `raw_rss, raw_github, articles_normalized, stg_articles` —
+bổ sung `raw_github` (task 1.2, chưa tồn tại lúc §7.3 viết) vào nhóm "raw_*" cho nhất quán;
+`articles_normalized` BẮT BUỘC có trong selection (thiếu thì `stg_articles` — VIEW đọc
+`silver.articles` — luôn phản ánh dữ liệu CŨ, ingest thêm vô nghĩa). 2 schedule
+(`midday_ingest_schedule` 12:00, `evening_ingest_schedule` 18:00) share 1 job, **giữ
+`default_status` mặc định STOPPED** — đúng quy ước `daily_pipeline_schedule` đã có từ task
+0.12 (chưa có Dagster daemon production, xem PROGRESS.md mục 5C) — không tự ý đổi quy ước
+một lịch mà để lịch kia khác.
+
+### 15.7 Verify THẬT đã làm được (không cần Telegram credentials)
+
+- `dbt build` không đụng gì (task này không sửa dbt) — 60/60 vẫn PASS (chạy lại xác nhận).
+- `uv run pytest tests/` → **282/282 pass** (266 trước + 16 mới `tests/test_alerting.py`,
+  Postgres thật, chèn/dọn dữ liệu dải ngày 2025-01-xx tách biệt hoàn toàn dữ liệu thật).
+  Phát hiện + tự sửa 1 lỗi thật khi viết test: `check_pipeline_health_anomalies()` (ingest
+  count 3σ) ban đầu có thêm guard `baseline_stddev > 0` KHÔNG có trong
+  `assert_ingest_count_no_anomaly.sql` (task 1.4) — lệch hành vi giữa SQL/Python dù cùng đọc
+  chung ngưỡng, đã bỏ guard để khớp đúng dbt (baseline rock-solid + deviation thật vẫn là tín
+  hiệu đáng báo, xem comment tại chỗ).
+- `ruff check`/`ruff format --check`/`mypy --strict` sạch trên toàn bộ file mới + sửa.
+- **`dagster dev` thật (port 3111) + GraphQL** (cùng cách task 1.5 đã verify freshness):
+  `schedulesOrError` → đúng 3 lịch, cron `0 5 * * *`/`0 12 * * *`/`0 18 * * *`, status
+  STOPPED cả 3 (đúng thiết kế 15.6). `sensorsOrError` → đúng 4 sensor
+  (`run_failure_sensor`/`freshness_sensor`/`quarantine_sensor`/`cost_sensor`), status RUNNING
+  cả 4 (`DefaultSensorStatus.RUNNING` — khác lịch, sensor cần chạy ngay để verify DONE WHEN
+  trong cửa sổ 5 phút). Đã tắt server test sau khi verify (`taskkill`, xác nhận connection
+  refused).
+
+### 15.8 CHƯA verify được — chờ credentials thật, KHÔNG tự bịa để "cho xong"
+
+`.env` thật: `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`/`DAGSTER_WEBSERVER_URL` đều **rỗng**
+(đã tự kiểm tra bằng `grep`, không đoán) — người dùng chưa điền. `NotifierResource.send_alert()`
+hiện chỉ log warning "chưa cấu hình đủ" và trả `False`, không gửi gì thật — an toàn (đã chạy
+`dagster dev` thật ở 15.7 với sensor RUNNING, không có tin nhắn giả nào bị gửi do thiếu key).
+
+**5 gạch đầu DONE WHEN CHƯA verify được vì lý do trên** (không phải code chưa xong — code đã
+chạy được, tests xanh, chỉ thiếu input thật từ người dùng):
+1. Cố ý fail một asset (sai credential DB) → nhận message thật trong 5 phút.
+2. `DELETE` tạm `mart_daily_digest` → nhận alert Critical → khôi phục.
+3. Kích Warning (quarantine/anomaly) → nhận alert đúng mức.
+4. Bắn lại cùng điều kiện trong cửa sổ chống lặp → không gửi lần hai.
+5. Heartbeat vẫn ping bình thường, độc lập kênh alert (heartbeat tự nó không đổi gì ở task
+   này, vẫn dùng `HEARTBEAT_URL` sẵn có — rủi ro thấp, nhưng chưa tự chạy lại để xác nhận
+   "không đổi" bằng số liệu thật kể từ khi thêm `send_alert()`).
+
+Sẽ chạy verify thật ngay khi có `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` — không đánh dấu task
+1.6 là "xong" cho tới lúc đó.
+
+## 16. Verify THẬT task 1.6 (tiếp mục 15) — có credentials, 6/6 DONE WHEN đã xác nhận, 2 lỗi
+thật phát hiện + đã sửa
+
+Người dùng cung cấp `TELEGRAM_BOT_TOKEN` (dán trực tiếp trong chat — đã ghi thẳng vào `.env`,
+KHÔNG lặp lại token trong bất kỳ output nào sau đó) + `TELEGRAM_CHAT_ID` (lấy qua
+`getUpdates` sau khi người dùng nhắn `/start` cho bot `@quybruno_bot` — lần thử đầu với ID
+đoán trước đó báo "chat not found", đúng như dự đoán vì bot chưa có phiên chat).
+
+### 16.1 Lỗi thật #1 — httpx tự log token qua URL request
+
+Test gửi thật lần đầu (qua đúng code path `NotifierResource.send_alert()`, không phải curl)
+gửi thành công (HTTP 200, tin nhắn tới thật), NHƯNG log `INFO:httpx:HTTP Request: POST
+https://api.telegram.org/bot<token>/sendMessage ...` — **httpx tự log nguyên URL ở mức INFO,
+và token Telegram nằm NGAY TRONG URL** (thiết kế của Telegram Bot API, không phải lựa chọn ở
+đây). Code tự viết không hề log token, nhưng đây vẫn là lộ thật nếu logger `"httpx"` ở mức
+INFO trở xuống — vi phạm đúng rào chắn "KHÔNG log token". Sửa: `send_alert()` nâng tạm mức
+logger `"httpx"` lên WARNING chỉ trong lúc gọi (`_suppress_httpx_url_logging()`), khôi phục
+ngay sau — KHÔNG đổi cấu hình logging toàn cục (RSS/github fetcher vẫn log INFO httpx bình
+thường, URL của chúng không chứa secret). Verify lại: gửi thật lần 2 → chỉ còn dòng log sạch
+"Đã gửi alert Telegram thành công.", không còn URL/token nào trong output.
+
+### 16.2 Lỗi thật #2 — `run_failure_sensor` crash vì thiếu required_resource_keys
+
+Cố ý fail thật một asset (`articles_normalized`, `--config` override
+`resources.postgres.config.database_url` thành cổng không tồn tại 5499 — cách CHÍNH THỐNG
+của Dagster để ép resource lỗi cho một run cụ thể, KHÔNG phải sửa `.env`/mã nguồn) → run FAIL
+thật (lỗi kết nối Postgres thật từ `psycopg`) → `run_failure_sensor` tick **FAILURE**, lỗi
+`DagsterUnknownResourceError: Unknown resource 'notifier'`. Nguyên nhân: `@run_failure_sensor`
+(khác `@sensor`) **KHÔNG có tham số `required_resource_keys`** (verify bằng
+`inspect.getsource(dagster.run_failure_sensor)` — không suy đoán từ tài liệu), nên
+`context.resources.notifier` (đã dùng y hệt 3 sensor kia) không resolve được. Sửa: tự dựng
+`NotifierResource` thẳng từ biến môi trường bên trong hàm (giống hệt cách `definitions.py`
+dựng nó), không phụ thuộc cơ chế inject resource của decorator này.
+
+**Gotcha môi trường phát hiện thêm khi test lỗi #2 (ghi lại cho lần sau):** `dagster dev`
+không set `DAGSTER_HOME` mặc định dùng thư mục TẠM (`.tmp_dagster_home_<random>`, tự xoá khi
+process thoát — thấy rõ qua log "This will be removed when dagster dev exits"). Một tiến
+trình `dagster asset materialize` CLI chạy RIÊNG (không set `DAGSTER_HOME` trỏ đúng thư mục
+đó) sẽ dùng MỘT instance KHÁC — `run_failure_sensor` của `dagster dev` đang chạy sẽ KHÔNG
+BAO GIỜ thấy run đó fail. Phải set `DAGSTER_HOME` của lệnh CLI trỏ ĐÚNG thư mục instance mà
+`dagster dev` đang dùng (hoặc dùng một `DAGSTER_HOME` cố định, tự tạo thư mục trước — Dagster
+KHÔNG tự tạo thư mục nếu biến này trỏ tới đường dẫn chưa tồn tại, đã tự verify bằng
+`DagsterInvariantViolationError` thật) để hai bên chia sẻ chung run storage.
+
+### 16.3 6/6 DONE WHEN — verify thật, có bằng chứng cụ thể (tick history GraphQL + log dòng lệnh)
+
+1. **Cố ý fail asset → message thật trong 5 phút, có asset/partition/run link:** verify 2
+   lần (lần 1 bắt được lỗi #2 ở trên, lần 2 sau khi sửa) — log dev server dòng
+   `22:24:46 ... run_failure_sensor - Đã gửi alert Telegram thành công.` ngay sau
+   `Sensor "run_failure_sensor" acted on run status FAILURE của run <run_id>` — từ lúc
+   trigger fail (~22:20) tới lúc gửi (~22:24:46) khoảng 4 phút, trong hạn 5 phút. Nội dung
+   message (đọc lại code `run_failure_alert_sensor`): job name, `step_keys` từ
+   `get_step_failure_events()`, `context.partition_key`, link `{DAGSTER_WEBSERVER_URL}/runs/{run_id}`.
+2. **`DELETE` `mart_daily_digest` → Critical → khôi phục:** xoá thật 27 dòng, tick
+   `freshness_sensor` kế tiếp ghi cursor `{"mart_daily_digest_empty": "2026-08-12T22:02:00..."}`
+   (trước đó các tick đều "có dữ liệu, không có gì bất thường") → khôi phục bằng
+   `dbt build --select mart_daily_digest` (rebuild từ `fct_article_score`, KHÔNG cần backup
+   thủ công vì mart này luôn được dbt tái tạo toàn bộ). **Lưu ý số liệu:** rebuild ra 15 dòng
+   thay vì 27 — KHÔNG phải mất dữ liệu (`fct_article_score` vẫn nguyên 77 dòng, verify trực
+   tiếp), mà do cửa sổ 48h của `mart_daily_digest` là cửa sổ TRƯỢT theo `current_timestamp`
+   thật (§5.8/§11.2) — vài giờ trôi qua thật trong phiên làm việc khiến batch bài cũ hơn (12
+   bài baseline từ trước) trôi ra khỏi cửa sổ 48h, đúng thiết kế "luôn phản ánh trạng thái
+   HIỆN TẠI", không phải lỗi của việc xoá/khôi phục.
+3. **Warning (quarantine) → đúng mức:** chèn dòng thật `quarantine_rate=0.30` (> ngưỡng
+   0.10) → tick `quarantine_sensor` ghi cursor `{"quarantine_rate_high": "2026-08-12T21:57:55..."}`.
+4. **Bắn lại cùng điều kiện trong cửa sổ chống lặp → không gửi lần 2:** verify qua 3 tick
+   liên tiếp sau đó (~21:58:55, ~22:00:35, ~22:01:35 — cách nhau đúng `minimum_interval_seconds=60`),
+   điều kiện vẫn đúng (chưa xoá dòng test) nhưng cursor GIỮ NGUYÊN timestamp gửi ban đầu cả
+   3 lần — chống lặp hoạt động đúng qua thời gian thật, không phải suy đoán từ code.
+5. **Heartbeat vẫn ping bình thường, độc lập kênh alert:** gọi thật `ping_heartbeat()` sau
+   khi đã thêm `send_alert()` → `HTTP/1.1 200 OK` tới đúng `HEARTBEAT_URL` cũ, không đổi gì.
+6. **Lịch 05:00/12:00/18:00 hiện trong Dagster UI:** đã verify ở mục 15.7 (GraphQL thật, 3
+   schedule đúng cron, không đổi lại ở đây).
+
+**Dọn dẹp sau verify:** xoá dòng test `mart_pipeline_health` (2026-08-20), xoá thư mục
+`DAGSTER_HOME` tạm dùng để test (`.dagster_home_verify`), tắt server test (`taskkill`, xác
+nhận connection refused). `uv run pytest tests/` → **282/282 pass** không đổi. `ruff check`/
+`mypy --strict` sạch 43 file (`src/`, `dagster_project/`, `tests/`).
+
+**Task 1.6 chính thức HOÀN THÀNH — cả 6/6 DONE WHEN đã verify bằng dữ liệu/log thật, không
+còn mục nào "chờ".**
