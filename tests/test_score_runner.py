@@ -32,7 +32,13 @@ from src.intel_bot.score.providers.mock import (
     MockFailureRates,
     MockProvider,
 )
-from src.intel_bot.score.runner import load_eligible_articles, run_score_partition
+from src.intel_bot.score.runner import (
+    RunnerResult,
+    load_eligible_articles,
+    load_top_k_from_fct_article_score,
+    run_score_partition,
+    run_summarize_top_k_partition,
+)
 
 TEST_PARTITION_DATE = dt.date(
     2000, 1, 3
@@ -77,7 +83,55 @@ def _insert_eligible_article(
     return article_id
 
 
+def _insert_fct_article_score_row(
+    connection: sa.Connection,
+    *,
+    article_id: uuid.UUID,
+    composite_score: float,
+) -> None:
+    """Chèn thẳng một dòng vào gold.fct_article_score, KHÔNG qua dbt — cùng mẫu đã dùng ở
+    tests/test_publish_runner.py cho gold.mart_daily_digest. D1: `run_summarize_top_k_partition`
+    đọc top-K từ bảng này (composite_score CHÍNH THỨC §5.7), nên test cho hàm đó phải tự
+    dựng dữ liệu gold thay vì chạy dbt build thật (chậm, cần DBT_PROFILES_DIR)."""
+    connection.execute(
+        sa.text(
+            """
+            INSERT INTO gold.fct_article_score (
+                score_id, article_id, source_id, model_name, prompt_version,
+                first_seen_date, first_seen_at, published_at, published_at_imputed,
+                llm_credibility, importance, depth, practicality, confidence,
+                source_tier, source_tier_score, credibility_blended, recency_boost,
+                composite_score, content_hash_group_size
+            ) VALUES (
+                :score_id, :article_id, 'test_score_source', 'mock', 'score_v2.0.0',
+                :first_seen_date, :now, :now, false,
+                5, 5, 5, 5, 'high',
+                1, 10, 5.0, 0.0,
+                :composite_score, 1
+            )
+            """
+        ).bindparams(
+            sa.bindparam("score_id", type_=postgresql.UUID),
+            sa.bindparam("article_id", type_=postgresql.UUID),
+        ),
+        {
+            "score_id": uuid.uuid4(),
+            "article_id": article_id,
+            "first_seen_date": TEST_PARTITION_DATE,
+            "now": NOW,
+            "composite_score": composite_score,
+        },
+    )
+
+
 def _cleanup(connection: sa.Connection) -> None:
+    connection.execute(
+        sa.text(
+            "DELETE FROM gold.fct_article_score WHERE article_id IN "
+            "(SELECT article_id FROM silver.articles WHERE first_seen_date = :d)"
+        ),
+        {"d": TEST_PARTITION_DATE},
+    )
     connection.execute(
         sa.text(
             "DELETE FROM silver.score_quarantine WHERE article_id IN "
@@ -118,7 +172,6 @@ def _run(
     *,
     provider: object,
     daily_budget_usd: Decimal = Decimal(1000),
-    top_k_summaries: int = 5,
     batch_size: int = 10,
 ):
     return run_score_partition(
@@ -127,7 +180,6 @@ def _run(
         provider=provider,  # type: ignore[arg-type]
         pricing=ZERO_PRICING,
         daily_budget_usd=daily_budget_usd,
-        top_k_summaries=top_k_summaries,
         batch_size=batch_size,
         now=NOW,
     )
@@ -437,29 +489,103 @@ def test_run_twice_same_partition_no_duplicate_scores(
 
 
 # ---------------------------------------------------------------------------
-# Top-K tóm tắt
+# D1: run_score_partition() và run_summarize_top_k_partition() giờ TÁCH RỜI — top-K đọc
+# composite score CHÍNH THỨC từ gold.fct_article_score (dbt), không tính lại trong Python
+# (composite.py đã xoá). Test chèn thẳng fixture vào gold.fct_article_score (không chạy dbt
+# thật, giống mẫu tests/test_publish_runner.py) để test hàm summarize độc lập với dbt build.
 # ---------------------------------------------------------------------------
 
 
-def test_summarize_only_top_k_articles(clean_partition: sa.Connection) -> None:
-    for i in range(5):
-        _insert_eligible_article(clean_partition, slug=f"topk-{i}")
+def test_load_top_k_from_fct_article_score_orders_by_composite_desc(
+    clean_partition: sa.Connection,
+) -> None:
+    ids = [
+        _insert_eligible_article(clean_partition, slug=f"fct-order-{i}")
+        for i in range(3)
+    ]
+    clean_partition.commit()
+    # Composite cố tình KHÔNG theo thứ tự chèn, để chứng minh ORDER BY thật sự sắp lại.
+    for article_id, composite in zip(ids, [3.0, 9.0, 5.0], strict=True):
+        _insert_fct_article_score_row(
+            clean_partition, article_id=article_id, composite_score=composite
+        )
+    clean_partition.commit()
+
+    top_2 = load_top_k_from_fct_article_score(
+        clean_partition, first_seen_date=TEST_PARTITION_DATE, k=2
+    )
+
+    assert [a.article_id for a in top_2] == [ids[1], ids[2]]  # composite 9.0 rồi 5.0
+
+
+def test_run_summarize_top_k_partition_only_summarizes_top_k(
+    clean_partition: sa.Connection,
+) -> None:
+    """D1: chấm điểm (run_score_partition) KHÔNG còn tự tóm tắt — phải gọi
+    run_summarize_top_k_partition() riêng, đọc top-K từ gold.fct_article_score (fixture chèn
+    thẳng ở đây, KHÔNG chạy dbt thật)."""
+    ids = [
+        _insert_eligible_article(clean_partition, slug=f"summarize-{i}")
+        for i in range(5)
+    ]
     clean_partition.commit()
 
     provider = MockProvider()
-    result = _run(clean_partition, provider=provider, top_k_summaries=2)
+    score_result = _run(clean_partition, provider=provider)
+    assert score_result.scored == 5
+    assert (
+        score_result.summarized == 0
+    )  # D1: không còn tự tóm tắt trong run_score_partition
 
-    assert result.scored == 5
-    assert result.summarized == 2
+    for i, article_id in enumerate(ids):
+        _insert_fct_article_score_row(
+            clean_partition, article_id=article_id, composite_score=float(i)
+        )
+    clean_partition.commit()
 
-    summary_count = clean_partition.execute(
-        sa.text(
-            "SELECT count(*) FROM silver.article_summaries s JOIN silver.articles a"
-            " ON a.article_id = s.article_id WHERE a.first_seen_date = :d"
-        ),
-        {"d": TEST_PARTITION_DATE},
-    ).scalar_one()
-    assert summary_count == 2
+    run_summarize_top_k_partition(
+        clean_partition,
+        partition_date=TEST_PARTITION_DATE,
+        provider=provider,
+        pricing=ZERO_PRICING,
+        daily_budget_usd=Decimal(1000),
+        top_k_summaries=2,
+        now=NOW,
+        result=score_result,
+    )
+
+    assert score_result.summarized == 2
+
+    summarized_ids = {
+        row.article_id
+        for row in clean_partition.execute(
+            sa.text(
+                "SELECT article_id FROM silver.article_summaries WHERE article_id = ANY(:ids)"
+            ).bindparams(sa.bindparam("ids", type_=postgresql.ARRAY(postgresql.UUID))),
+            {"ids": ids},
+        ).all()
+    }
+    # composite cao nhất = index 4 và 3 (composite_score = float(i)).
+    assert summarized_ids == {ids[4], ids[3]}
+
+
+def test_run_summarize_top_k_partition_no_fct_rows_summarizes_nothing(
+    clean_partition: sa.Connection,
+) -> None:
+    """gold.fct_article_score rỗng cho partition (vd. dbt build chưa chạy/chưa có bài nào
+    qua được is_production_model()) — không có gì để tóm tắt, không lỗi."""
+    result = RunnerResult()
+    run_summarize_top_k_partition(
+        clean_partition,
+        partition_date=TEST_PARTITION_DATE,
+        provider=MockProvider(),
+        pricing=ZERO_PRICING,
+        daily_budget_usd=Decimal(1000),
+        top_k_summaries=5,
+        now=NOW,
+        result=result,
+    )
+    assert result.summarized == 0
 
 
 def test_summary_table_has_no_score_columns(clean_partition: sa.Connection) -> None:

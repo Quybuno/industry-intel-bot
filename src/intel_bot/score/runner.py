@@ -2,8 +2,17 @@
 §10.1-10.7, §4.4, §5.4, §21.1-21.2).
 
 Có I/O — nhận connection/provider qua tham số, không tự tạo bên trong (để test được).
-Logic quyết định (contract validation ở task 0.7, xếp hạng composite ở composite.py) nằm
-ở module khác; ở đây chỉ orchestrate đúng theo bảng lỗi §10.5.
+Logic quyết định (contract validation ở task 0.7) nằm ở module khác; ở đây chỉ orchestrate
+đúng theo bảng lỗi §10.5.
+
+**D1 (dọn nợ kỹ thuật, thay `composite.py` đã xoá):** chấm điểm (`run_score_partition`) và
+tóm tắt top-K (`run_summarize_top_k_partition`) giờ là HAI bước TÁCH RỜI, không còn gọi lẫn
+nhau trong cùng một hàm. Composite score dùng để xếp hạng top-K đọc THẲNG từ
+`gold.fct_article_score` (dbt, công thức CHÍNH THỨC §5.7: credibility = 80% source tier +
+20% LLM) — không tính lại trong Python (P5). Giữa hai bước, bên gọi (CLI `score`/asset
+Dagster `article_summaries`) PHẢI đảm bảo dbt đã build `fct_article_score` cho đúng
+partition_date; hàm ở đây không tự chạy dbt. Xem PROGRESS.md mục 9 (D1) để biết lý do đầy
+đủ và các phương án đã cân nhắc.
 """
 
 from __future__ import annotations
@@ -18,10 +27,6 @@ from decimal import Decimal
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-from src.intel_bot.score.composite import (
-    ScoredArticleForRanking,
-    compute_composite_score,
-)
 from src.intel_bot.score.cost import ModelPricing, compute_cost_usd
 from src.intel_bot.score.prompt_builder import build_score_prompt, build_summary_prompt
 from src.intel_bot.score.providers.base import (
@@ -44,21 +49,6 @@ class EligibleArticle:
     published_at: dt.datetime | None
     first_seen_at: dt.datetime
     published_at_imputed: bool
-
-
-@dataclass(frozen=True)
-class ScoredArticle:
-    """Một bài status='scored' (kèm điểm) — đọc để chọn top-K tóm tắt."""
-
-    article_id: uuid.UUID
-    title: str
-    snippet: str
-    published_at: dt.datetime | None
-    first_seen_at: dt.datetime
-    published_at_imputed: bool
-    credibility: int
-    importance: int
-    practicality: int
 
 
 @dataclass
@@ -127,46 +117,40 @@ def load_eligible_articles(
     ]
 
 
-def load_scored_articles(
-    connection: sa.Connection,
-    *,
-    first_seen_date: dt.date,
-    prompt_version: str,
-    model_name: str,
-) -> list[ScoredArticle]:
-    """Đọc bài status='scored' của một ngày, kèm điểm từ đúng (prompt_version, model_name)
-    vừa chấm — dùng để chọn top-K tóm tắt."""
+def load_top_k_from_fct_article_score(
+    connection: sa.Connection, *, first_seen_date: dt.date, k: int
+) -> list[EligibleArticle]:
+    """Đọc K bài xếp hạng cao nhất theo `composite_score` CHÍNH THỨC từ
+    `gold.fct_article_score` (dbt, §5.7: credibility = 80% source tier + 20% LLM, đã dedup
+    cấp 2 ở `int_articles_deduped`) — KHÔNG tính lại composite trong Python (P5, D1). Xếp
+    hạng (`ORDER BY ... LIMIT`) là một câu SQL, không phải logic xếp hạng viết bằng Python.
+
+    YÊU CẦU: dbt đã build `fct_article_score` cho đúng `first_seen_date` này TRƯỚC khi gọi
+    hàm này — xem `run_summarize_top_k_partition` và nơi gọi nó (cli.py/dagster asset
+    `article_summaries`). Chỉ join `silver.articles` để lấy title/snippet cho prompt tóm
+    tắt; không đọc lại cột điểm nào (đã dùng xong ở dbt)."""
     rows = connection.execute(
         sa.text(
             """
             SELECT a.article_id, a.title, a.snippet, a.published_at, a.first_seen_at,
-                   a.published_at_imputed, s.credibility, s.importance, s.practicality
-            FROM silver.articles a
-            JOIN silver.article_scores s ON s.article_id = a.article_id
-            WHERE a.first_seen_date = :first_seen_date
-              AND a.status = 'scored'
-              AND s.prompt_version = :prompt_version
-              AND s.model_name = :model_name
-            ORDER BY a.article_id
+                   a.published_at_imputed
+            FROM gold.fct_article_score AS fct
+            JOIN silver.articles AS a ON a.article_id = fct.article_id
+            WHERE fct.first_seen_date = :first_seen_date
+            ORDER BY fct.composite_score DESC, fct.article_id ASC
+            LIMIT :k
             """
         ),
-        {
-            "first_seen_date": first_seen_date,
-            "prompt_version": prompt_version,
-            "model_name": model_name,
-        },
+        {"first_seen_date": first_seen_date, "k": k},
     ).all()
     return [
-        ScoredArticle(
+        EligibleArticle(
             article_id=row.article_id,
             title=row.title,
             snippet=row.snippet or "",
             published_at=row.published_at,
             first_seen_at=row.first_seen_at,
             published_at_imputed=row.published_at_imputed,
-            credibility=row.credibility,
-            importance=row.importance,
-            practicality=row.practicality,
         )
         for row in rows
     ]
@@ -182,33 +166,6 @@ def get_daily_cost_so_far(connection: sa.Connection, *, day: dt.date) -> Decimal
         {"day": day},
     ).scalar_one()
     return Decimal(total)
-
-
-# ---------------------------------------------------------------------------
-# Hàm thuần — xếp hạng top-K
-# ---------------------------------------------------------------------------
-
-
-def select_top_k_by_composite(
-    articles: list[ScoredArticle], *, k: int, now: dt.datetime
-) -> list[ScoredArticle]:
-    """Chọn K bài xếp hạng cao nhất theo composite score tạm (composite.py). Hàm thuần."""
-    ranked = sorted(
-        articles,
-        key=lambda a: compute_composite_score(
-            ScoredArticleForRanking(
-                credibility=a.credibility,
-                importance=a.importance,
-                practicality=a.practicality,
-                published_at=a.published_at,
-                first_seen_at=a.first_seen_at,
-                published_at_imputed=a.published_at_imputed,
-            ),
-            now=now,
-        ),
-        reverse=True,
-    )
-    return ranked[:k]
 
 
 # ---------------------------------------------------------------------------
@@ -413,21 +370,24 @@ def run_score_partition(
     provider: LLMProvider,
     pricing: ModelPricing,
     daily_budget_usd: Decimal,
-    top_k_summaries: int,
     batch_size: int,
     now: dt.datetime,
 ) -> RunnerResult:
-    """Chấm điểm + tóm tắt top-K cho một partition. Xử lý lỗi ĐÚNG bảng §10.5.
+    """Chấm điểm cho một partition. Xử lý lỗi ĐÚNG bảng §10.5.
+
+    **D1:** hàm này giờ CHỈ chấm điểm — KHÔNG còn tự tóm tắt top-K (khác 0.8/0.9). Muốn tóm
+    tắt top-K, gọi `run_summarize_top_k_partition()` riêng SAU KHI dbt đã build
+    `gold.fct_article_score` cho `partition_date` này (composite score chính thức §5.7 cần
+    dbt tính — xem docstring module và PROGRESS.md mục 9 D1). Bên gọi (cli.py `score`, asset
+    Dagster `article_scores`/`article_summaries`) chịu trách nhiệm xen bước dbt build vào
+    giữa hai lời gọi.
 
     Idempotent: bài đã 'scored'/'quarantined' không còn 'eligible' nên lần chạy sau không
-    xử lý lại; article_scores/article_summaries còn có ON CONFLICT DO NOTHING làm lớp bảo
-    vệ thứ hai (vd. khi job bị ngắt giữa chừng sau INSERT nhưng trước UPDATE status).
+    xử lý lại; article_scores còn có ON CONFLICT DO NOTHING làm lớp bảo vệ thứ hai (vd. khi
+    job bị ngắt giữa chừng sau INSERT nhưng trước UPDATE status).
     """
     result = RunnerResult()
     articles = load_eligible_articles(connection, first_seen_date=partition_date)
-
-    scored_prompt_version: str | None = None
-    scored_model_name: str | None = None
 
     for chunk in _chunked(articles, batch_size):
         built_prompts = [
@@ -491,8 +451,6 @@ def run_score_partition(
                 result.scored += 1
                 result.total_cost_usd += cost_usd
                 result.latencies_ms.append(outcome.latency_ms)
-                scored_prompt_version = outcome.prompt_version
-                scored_model_name = outcome.model_name
             else:
                 insert_quarantine(
                     connection,
@@ -511,24 +469,10 @@ def run_score_partition(
 
         connection.commit()
 
-    if scored_prompt_version and scored_model_name and not result.budget_stopped:
-        _summarize_top_k(
-            connection,
-            partition_date=partition_date,
-            provider=provider,
-            pricing=pricing,
-            daily_budget_usd=daily_budget_usd,
-            top_k_summaries=top_k_summaries,
-            prompt_version=scored_prompt_version,
-            model_name=scored_model_name,
-            now=now,
-            result=result,
-        )
-
     return result
 
 
-def _summarize_top_k(
+def run_summarize_top_k_partition(
     connection: sa.Connection,
     *,
     partition_date: dt.date,
@@ -536,19 +480,25 @@ def _summarize_top_k(
     pricing: ModelPricing,
     daily_budget_usd: Decimal,
     top_k_summaries: int,
-    prompt_version: str,
-    model_name: str,
     now: dt.datetime,
     result: RunnerResult,
 ) -> None:
-    """Sinh tóm tắt cho top-K bài theo composite score — chỉ top-K, không phải toàn bộ (§21.2)."""
-    scored_articles = load_scored_articles(
-        connection,
-        first_seen_date=partition_date,
-        prompt_version=prompt_version,
-        model_name=model_name,
+    """Sinh tóm tắt cho top-K bài theo composite score CHÍNH THỨC — chỉ top-K, không phải
+    toàn bộ (§21.2).
+
+    **D1:** thay cho `_summarize_top_k` cũ (đã xoá cùng `composite.py`) — đọc top-K từ
+    `gold.fct_article_score` (`load_top_k_from_fct_article_score`) thay vì tính composite
+    tạm trong Python. YÊU CẦU bên gọi đã chạy `dbt build` cho `fct_article_score` của
+    `partition_date` này trước khi gọi hàm này (xem cli.py `score` / asset Dagster
+    `article_summaries`) — hàm không tự kiểm tra hay tự chạy dbt.
+
+    `result` truyền vào và bị SỬA TRỰC TIẾP (cùng object với kết quả `run_score_partition`
+    trả về) để bên gọi gộp thống kê cả hai bước vào một `RunnerResult` duy nhất, giữ đúng
+    hình dạng báo cáo cũ (`summarized`, `summary_quarantined`, `total_cost_usd` cộng dồn).
+    """
+    top_k = load_top_k_from_fct_article_score(
+        connection, first_seen_date=partition_date, k=top_k_summaries
     )
-    top_k = select_top_k_by_composite(scored_articles, k=top_k_summaries, now=now)
     if not top_k:
         return
 

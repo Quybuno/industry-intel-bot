@@ -1,7 +1,9 @@
 import asyncio
 import datetime
 import io
+import json
 import os
+import subprocess
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -38,7 +40,14 @@ from src.intel_bot.score.providers.base import LLMProvider
 from src.intel_bot.score.providers.deepseek import DeepSeekProvider
 from src.intel_bot.score.providers.deepseek import max_per_run as deepseek_max_per_run
 from src.intel_bot.score.providers.mock import ZERO_PRICING, MockProvider
-from src.intel_bot.score.runner import run_score_partition
+from src.intel_bot.score.runner import (
+    run_score_partition,
+    run_summarize_top_k_partition,
+)
+
+#: Thư mục dbt project — dùng làm cả --project-dir lẫn --profiles-dir (profiles.yml nằm
+#: trong chính dbt_project/, xem README mục Dagster / AGENTS.md mục 8).
+DBT_PROJECT_DIR = Path(__file__).resolve().parents[2] / "dbt_project"
 
 load_dotenv()
 
@@ -261,6 +270,39 @@ def filter(
             typer.echo(f"  {reason}: {count}")
 
 
+def _run_dbt_build_for_fct_article_score(run_date: datetime.date) -> None:
+    """`dbt build --select +fct_article_score --vars '{"run_date": ...}'` cho đúng
+    partition_date vừa chấm (D1, PROGRESS.md mục 9). `+fct_article_score` kéo theo TOÀN BỘ
+    node thượng nguồn thật sự cần (staging, snapshot dim_source, intermediate) — không liệt
+    kê tay từng model.
+
+    Chỉ gọi CLI dbt qua subprocess — KHÔNG tính lại composite score trong Python (P5), y hệt
+    cách `dagster_project/assets/dbt_assets.py` gọi `dbt.cli(["build", ...])`. Raise
+    `typer.Exit` rõ ràng nếu dbt build lỗi — đây là lỗi hạ tầng, không phải lỗi một bản ghi
+    (khác bảng §10.5), nên KHÔNG được nuốt lỗi rồi coi như đã tóm tắt xong.
+    """
+    vars_json = json.dumps({"run_date": run_date.isoformat()})
+    try:
+        subprocess.run(
+            [
+                "dbt",
+                "build",
+                "--select",
+                "+fct_article_score",
+                "--vars",
+                vars_json,
+                "--project-dir",
+                str(DBT_PROJECT_DIR),
+                "--profiles-dir",
+                str(DBT_PROJECT_DIR),
+            ],
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        typer.echo(f"dbt build fct_article_score thất bại: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
 @app.command()
 def score(
     date: str | None = typer.Option(
@@ -275,6 +317,12 @@ def score(
     Không clamp giá trị ngoài miền; lỗi từng bản ghi vào silver.score_quarantine theo
     đúng bảng §10.5. Không raise vì lỗi một bản ghi — chỉ exit khác 0 khi cả provider
     không dùng được giữa chừng.
+
+    **D1:** sau khi chấm điểm xong, lệnh này tự chạy `dbt build fct_article_score` (composite
+    score CHÍNH THỨC §5.7) rồi mới tóm tắt top-K — xem `_run_dbt_build_for_fct_article_score`
+    và `docs/PROGRESS.md` mục 9 (D1) để biết lý do. Bước dbt CHỈ chạy nếu có bài mới được
+    chấm thành công và chưa vượt ngân sách — không tốn thời gian dbt build vô ích khi không
+    có gì mới (vd. chạy lại `score` trên partition đã chấm xong).
     """
     if date:
         partition_date = datetime.date.fromisoformat(date)
@@ -325,10 +373,22 @@ def score(
                 provider=provider,
                 pricing=pricing,
                 daily_budget_usd=daily_budget_usd,
-                top_k_summaries=top_k_summaries,
                 batch_size=batch_size,
                 now=now,
             )
+
+            if result.scored > 0 and not result.budget_stopped:
+                _run_dbt_build_for_fct_article_score(partition_date)
+                run_summarize_top_k_partition(
+                    connection,
+                    partition_date=partition_date,
+                    provider=provider,
+                    pricing=pricing,
+                    daily_budget_usd=daily_budget_usd,
+                    top_k_summaries=top_k_summaries,
+                    now=now,
+                    result=result,
+                )
     finally:
         engine.dispose()
 

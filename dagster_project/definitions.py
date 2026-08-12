@@ -25,7 +25,8 @@ from dagster_project.assets.dbt_assets import (
 )
 from dagster_project.assets.serve import published_site
 from dagster_project.assets.silver import (
-    article_scores_and_summaries,
+    article_scores,
+    article_summaries,
     articles_filtered,
     articles_normalized,
 )
@@ -42,7 +43,8 @@ defs = Definitions(
         raw_rss,
         articles_normalized,
         articles_filtered,
-        article_scores_and_summaries,
+        article_scores,
+        article_summaries,
         daily_dbt_assets,
         snapshot_dbt_assets,
         published_site,

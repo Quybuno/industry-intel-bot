@@ -9,6 +9,19 @@ hoá URL + quy tắc cold-start (§8.2-8.4) là business logic THẬT, đã tồ
 này thì `silver.articles` (nguồn của view `stg_articles`) sẽ luôn rỗng. Xem docs/PROGRESS.md
 mục 5C để biết lý do đầy đủ.
 
+**D1 (dọn nợ kỹ thuật) — `article_scores`/`article_summaries` KHÔNG còn là một multi_asset
+gộp chung.** Trước đây một lần gọi `run_score_partition()` sinh cả điểm lẫn tóm tắt top-K
+(dùng công thức composite TẠM `composite.py`, đã xoá — xem PROGRESS.md mục 9 D1). Giờ top-K
+đọc composite score CHÍNH THỨC (§5.7) từ `gold.fct_article_score` (dbt), nên `article_scores`
+phải ghi xong TRƯỚC, dbt build `fct_article_score` chạy TIẾP, rồi `article_summaries` mới
+đọc được — hai asset Python tách rời, `article_summaries` khai `deps=["fct_article_score"]`
+(LỆCH bảng §7.2 gốc — bảng đó ghi `article_summaries` phụ thuộc `article_scores` trực tiếp,
+nhưng đó là khoảng trống rút gọn giống `articles_normalized` ở trên, không phải lựa chọn sản
+phẩm). Dagster tự lo thứ tự chạy đúng qua đồ thị `deps=` — không cần `internal_asset_deps`/
+`multi_asset` nữa, và cũng KHÔNG cần code orchestration gọi dbt thủ công như bên CLI
+(`cli.py::_run_dbt_build_for_fct_article_score`) vì `fct_article_score` đã là asset dbt thật
+trong `daily_dbt_assets` (dagster-dbt tự subset-chạy dbt build đúng lúc).
+
 **Không có `from __future__ import annotations`** — dagster kiểm tra kiểu tham số `context`
 bằng so khớp class trực tiếp, không resolve forward-ref chuỗi; xem giải thích đầy đủ ở
 `assets/bronze.py`.
@@ -16,20 +29,16 @@ bằng so khớp class trực tiếp, không resolve forward-ref chuỗi; xem gi
 
 import datetime as dt
 import time
-from collections.abc import Iterator
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from dagster import (
     AssetExecutionContext,
-    AssetKey,
-    AssetOut,
     Failure,
     MaterializeResult,
     MetadataValue,
     asset,
-    multi_asset,
 )
 
 from dagster_project.partitions import daily_partitions
@@ -39,7 +48,11 @@ from src.intel_bot.config import load_config_dir
 from src.intel_bot.filter.keyword_filter import FilterRules
 from src.intel_bot.filter.loader import run_filter_partition
 from src.intel_bot.ingest.loader import normalize_partition
-from src.intel_bot.score.runner import run_score_partition
+from src.intel_bot.score.runner import (
+    RunnerResult,
+    run_score_partition,
+    run_summarize_top_k_partition,
+)
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
@@ -135,49 +148,25 @@ def articles_filtered(
     )
 
 
-@multi_asset(
-    outs={
-        "article_scores": AssetOut(
-            group_name="silver",
-            description="Chấm điểm 4 tiêu chí + tags cho bài eligible (task 0.8, §10).",
-        ),
-        "article_summaries": AssetOut(
-            group_name="silver",
-            description="Tóm tắt 5 bullet tiếng Việt cho top-K theo composite (task 0.8, §4.4).",
-        ),
-    },
-    # article_summaries phụ thuộc article_scores VỀ MẶT DỮ LIỆU (top-K chọn theo điểm vừa
-    # chấm) dù cùng một lần gọi run_score_partition() sinh ra cả hai — khai báo rõ để lineage
-    # trên UI đúng thứ tự, không phải hai asset độc lập tình cờ chung một op. Một khi đã
-    # dùng internal_asset_deps, PHẢI liệt kê đủ mọi input (kể cả articles_filtered) cho
-    # từng out — dagster không tự suy ra phần còn lại (đã tự verify bằng CheckError khi
-    # thiếu, không phải đoán).
-    internal_asset_deps={
-        "article_scores": {AssetKey("articles_filtered")},
-        "article_summaries": {
-            AssetKey("articles_filtered"),
-            AssetKey("article_scores"),
-        },
-    },
+@asset(
+    key="article_scores",
+    group_name="silver",
     partitions_def=daily_partitions,
     deps=["articles_filtered"],
-    can_subset=False,
-    description=(
-        "Một lần gọi run_score_partition() (task 0.8/0.9) chấm điểm VÀ tóm tắt top-K — "
-        "KHÔNG tách logic, chỉ tách asset representation (xem docs/PROGRESS.md)."
-    ),
+    description="Chấm điểm 4 tiêu chí + tags cho bài eligible (task 0.8, §10).",
 )
-def article_scores_and_summaries(
+def article_scores(
     context: AssetExecutionContext, postgres: PostgresResource, llm: LLMResource
-) -> Iterator[MaterializeResult[Any]]:
+) -> MaterializeResult[Any]:
     """`partition_date` LUÔN lấy từ partition key. `now` dùng cho `scored_at`/recency —
-    mốc thời điểm THẬT của lần chấm này, không phải ngày partition."""
+    mốc thời điểm THẬT của lần chấm này, không phải ngày partition.
+
+    D1: KHÔNG còn tự tóm tắt top-K (khác task 0.8/0.9) — xem asset `article_summaries`."""
     partition_date = dt.date.fromisoformat(context.partition_key)
     now = dt.datetime.now(tz=VN_TZ)
 
     score_cfg = load_config_dir().get("app", {}).get("score", {})
     daily_budget_usd = Decimal(str(score_cfg.get("daily_budget_usd", "1.00")))
-    top_k_summaries = int(score_cfg.get("top_k_summaries", 15))
 
     provider, pricing, batch_size = llm.build()
 
@@ -189,7 +178,6 @@ def article_scores_and_summaries(
             provider=provider,
             pricing=pricing,
             daily_budget_usd=daily_budget_usd,
-            top_k_summaries=top_k_summaries,
             batch_size=batch_size,
             now=now,
         )
@@ -212,11 +200,64 @@ def article_scores_and_summaries(
     if result.latency_p95_ms is not None:
         score_metadata["latency_p95_ms"] = MetadataValue.float(result.latency_p95_ms)
 
-    yield MaterializeResult(asset_key="article_scores", metadata=score_metadata)
-    yield MaterializeResult(
-        asset_key="article_summaries",
+    return MaterializeResult(metadata=score_metadata)
+
+
+@asset(
+    key="article_summaries",
+    group_name="silver",
+    partitions_def=daily_partitions,
+    # D1: KHÔNG còn deps=["article_scores"] trực tiếp — top-K đọc composite score CHÍNH
+    # THỨC (§5.7) từ gold.fct_article_score (dbt), nên phải đợi dbt build model đó xong,
+    # không chỉ đợi article_scores (Python) ghi xong. Dagster tự suy đúng thứ tự chạy
+    # (article_scores -> fct_article_score -> article_summaries) từ đồ thị deps= — không
+    # cần gọi dbt thủ công như cli.py vì fct_article_score đã là asset dbt thật.
+    deps=["fct_article_score"],
+    description=(
+        "Tóm tắt 5 bullet tiếng Việt cho top-K theo composite CHÍNH THỨC từ "
+        "gold.fct_article_score (D1, §5.7 — khác task 0.8 dùng composite tạm)."
+    ),
+)
+def article_summaries(
+    context: AssetExecutionContext, postgres: PostgresResource, llm: LLMResource
+) -> MaterializeResult[Any]:
+    """`partition_date` LUÔN lấy từ partition key. `now` dùng cho `created_at`, không phải
+    ngày partition."""
+    partition_date = dt.date.fromisoformat(context.partition_key)
+    now = dt.datetime.now(tz=VN_TZ)
+
+    score_cfg = load_config_dir().get("app", {}).get("score", {})
+    daily_budget_usd = Decimal(str(score_cfg.get("daily_budget_usd", "1.00")))
+    top_k_summaries = int(score_cfg.get("top_k_summaries", 15))
+
+    provider, pricing, _batch_size = llm.build()
+
+    started_at = time.monotonic()
+    result = RunnerResult()
+    with postgres.get_connection() as connection:
+        run_summarize_top_k_partition(
+            connection,
+            partition_date=partition_date,
+            provider=provider,
+            pricing=pricing,
+            daily_budget_usd=daily_budget_usd,
+            top_k_summaries=top_k_summaries,
+            now=now,
+            result=result,
+        )
+    duration_seconds = time.monotonic() - started_at
+
+    if result.provider_unavailable:
+        raise Failure(
+            "Provider không dùng được giữa chừng (§10.5) — xem log để biết chi tiết."
+        )
+
+    return MaterializeResult(
         metadata={
             "summarized": MetadataValue.int(result.summarized),
             "summary_quarantined": MetadataValue.int(result.summary_quarantined),
-        },
+            "cost_usd": MetadataValue.float(float(result.total_cost_usd)),
+            "budget_stopped": MetadataValue.bool(result.budget_stopped),
+            "duration_seconds": MetadataValue.float(round(duration_seconds, 3)),
+        }
     )

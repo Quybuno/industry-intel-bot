@@ -101,6 +101,10 @@ rồi **xoá `composite.py`**, sửa `runner.py::_summarize_top_k()` để đọ
 `gold.fct_article_score` thay vì gọi `compute_composite_score()`. Đừng giữ song song hai
 công thức.
 
+**Cập nhật D1 (mục 9):** việc này bị hoãn qua cả 0.10 (5A)/0.12 (5C) vì "xoá composite.py"
+kéo theo một thay đổi luồng orchestration thật (dbt phải chạy XEN GIỮA chấm điểm và tóm tắt
+top-K) — không đơn giản như đổi một lời gọi hàm. Đã làm ở D1.
+
 ### 2.4 Migration bổ sung ngoài kế hoạch gốc (không sửa migration cũ)
 
 - `0003_articles_debug_cols.py` — thêm `silver.articles.raw_url`, `published_at_imputed`
@@ -337,7 +341,7 @@ sạch trên toàn bộ `src/intel_bot/publish/` + `cli.py` + 3 file test mới.
 
 **Cố ý chưa làm** (đúng phạm vi "CHỈ thực hiện task 0.11"): chưa xoá `composite.py`/sửa
 `runner.py::_summarize_top_k()` như 5A đã ghi — việc này vẫn hoãn tới 0.12 (Dagster), vì lý
-do đã nêu ở 5A không đổi. Cũng chưa làm: git commit/push `docs-site/` (không được giao),
+do đã nêu ở 5A không đổi (ĐÃ TRẢ ở D1, mục 9). Cũng chưa làm: git commit/push `docs-site/` (không được giao),
 CI ping heartbeat (§7.5, ngoài phạm vi Phase 0 theo AGENTS.md), archive pruning >7 ngày
 (DONE WHEN không yêu cầu, `archive_days` trong config hiện chỉ mang tính tài liệu).
 
@@ -454,6 +458,9 @@ nhưng đây là khoảng trống cơ học của bảng rút gọn trong đề 
 - Chưa xoá `src/intel_bot/score/composite.py`/sửa `runner.py::_summarize_top_k()` (nợ từ
   5A) — task 0.12 không đụng tới luồng orchestration của lệnh `score` (asset gọi lại
   nguyên hàm `run_score_partition()`), nên nợ này VẪN CÒN, chưa có task nào giao dọn nó.
+  **ĐÃ TRẢ ở D1 (mục 9) — xem chi tiết ở đó**, kể cả việc tách `article_scores_and_summaries`
+  (multi_asset) thành hai asset `article_scores`/`article_summaries` rời nhau mà đoạn này
+  chưa lường trước.
 
 ## 6. Trạng thái DB dev hiện tại (lúc viết file này — sẽ lạc hậu, tự query lại)
 
@@ -624,3 +631,52 @@ phía dưới, vốn đã đúng và chi tiết — không viết lại cả fil
   ghi rõ workaround.
 - README chưa được cấu trúc lại toàn diện (để dành prompt 22 theo đúng yêu cầu D12) — chỉ
   sửa phần mở đầu cho không còn nói sai.
+
+## 10. Đã làm — Dọn nợ kỹ thuật (D1–D4, sau Phase 0, trước Phase 1)
+
+**D1 — Xoá công thức composite trùng lặp (nợ từ 2.3/5A/5C):**
+
+Vấn đề cốt lõi phát hiện khi phân tích (lý do việc này bị hoãn 3 lần): `run_score_partition()`
+cũ chấm điểm RỒI NGAY TRONG CÙNG một lần gọi Python đọc lại điểm, tính composite tạm bằng
+`compute_composite_score()`, chọn top-K, tóm tắt — không đụng dbt. Để đọc composite từ
+`gold.fct_article_score` (§5.7: credibility = 80% source tier + 20% LLM), **dbt phải chạy
+XEN GIỮA** hai bước đó — `fct_article_score` cần `article_scores` (Python vừa ghi) +
+`dim_source` (SCD2) để tính blended credibility, không có cách nào bỏ qua.
+
+Đã trình bày phương án cho cả hai đường chạy TRƯỚC khi viết code (theo đúng yêu cầu), người
+dùng chọn: **một lệnh CLI `score` duy nhất, tự gọi `dbt build` bên trong** (thay vì tách
+`score`/`summarize` thành 2 lệnh CLI riêng — phương án bị loại vì thêm bước thủ công dễ quên,
+đúng kiểu lỗi mock-lọt-gold đã từng xảy ra ở 5B).
+
+- `src/intel_bot/score/runner.py`: `run_score_partition()` giờ CHỈ chấm điểm (bỏ tham số
+  `top_k_summaries`, bỏ lời gọi `_summarize_top_k` nội bộ). Hàm mới
+  `run_summarize_top_k_partition()` (public, thay `_summarize_top_k` private cũ) đọc top-K
+  qua `load_top_k_from_fct_article_score()` — một câu SQL `ORDER BY composite_score DESC
+  LIMIT :k` join `gold.fct_article_score` với `silver.articles` (lấy title/snippet) — KHÔNG
+  tính lại composite trong Python (P5). `ScoredArticle`/`load_scored_articles`/
+  `select_top_k_by_composite` (logic Python cũ) đã xoá theo.
+- `src/intel_bot/cli.py`: lệnh `score` sau khi chấm điểm — nếu `scored > 0` và không
+  `budget_stopped` — gọi `_run_dbt_build_for_fct_article_score()` (subprocess
+  `dbt build --select +fct_article_score --vars run_date`, giống hệt cách
+  `dagster_project/assets/dbt_assets.py` gọi dbt, P5) rồi mới `run_summarize_top_k_partition()`.
+  Không tốn thời gian dbt build khi không có gì mới chấm (rerun trên partition đã xong).
+- `dagster_project/assets/silver.py`: multi_asset `article_scores_and_summaries` (dùng
+  `internal_asset_deps`, nguồn của lỗi CheckError đã ghi ở 5C) tách thành HAI `@asset` bình
+  thường — `article_scores` (`deps=["articles_filtered"]`) và `article_summaries`
+  (`deps=["fct_article_score"]`, LỆCH bảng §7.2 gốc ghi phụ thuộc `article_scores` trực
+  tiếp — cùng loại khoảng trống rút gọn như `articles_normalized`, không phải lựa chọn sản
+  phẩm). Không cần code orchestration gọi dbt thủ công bên Dagster: `fct_article_score` đã
+  là asset dbt thật trong `daily_dbt_assets`, dagster-dbt tự subset-chạy đúng lúc (cơ chế đã
+  hoạt động từ 0.12 cho `stg_articles` chạy trước `articles_filtered` trong cùng
+  `@dbt_assets`, giờ áp dụng thêm cho `fct_article_score` chạy trước `article_summaries`).
+  `definitions.py` cập nhật theo (import + danh sách `assets=[...]`).
+- Xoá `src/intel_bot/score/composite.py` + `tests/test_composite.py` (11 test).
+- Test: viết lại `tests/test_score_runner.py` phần top-K — chèn thẳng fixture vào
+  `gold.fct_article_score` (KHÔNG chạy dbt thật, cùng mẫu `tests/test_publish_runner.py` đã
+  dùng cho `gold.mart_daily_digest`) để test `run_summarize_top_k_partition()` độc lập với
+  dbt build (chậm, cần `DBT_PROFILES_DIR`). `tests/test_cli_score.py` thêm 3 test xác nhận
+  dbt build + summarize được/không được gọi đúng theo `scored`/`budget_stopped`.
+- **Sự cố môi trường gặp khi verify:** Docker Desktop crash giữa chừng (đúng gotcha đã biết
+  ở mục 3.2) — `uv run pytest` treo vô thời hạn (không timeout rõ ràng) vì `engine.connect()`
+  cố nối Postgres trong khi Docker daemon đã chết, không phải lỗi do code D1. Khởi động lại
+  Docker Desktop + `docker compose up -d postgres` rồi chạy lại là qua.
