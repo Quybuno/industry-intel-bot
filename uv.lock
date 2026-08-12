@@ -1083,7 +1083,7 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'filter'", specifier = ">=1.24.0" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1.0" },
-    { name = "pydantic", specifier = ">=1.10.2" },
+    { name = "pydantic", specifier = ">=2,<3" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.31.0" },

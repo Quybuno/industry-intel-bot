@@ -508,7 +508,7 @@ làm") — verify bằng chạy thật (`dagster dev`, `dagster asset materializ
 bằng bộ test tự động. `ruff check`/`ruff format`/`mypy --strict` sạch trên toàn bộ
 `dagster_project/`.
 
-## 9. Đã làm — Vệ sinh repo (D8–D9, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
+## 9. Đã làm — Vệ sinh repo (D8–D10, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
 
 Task KHÔNG đụng logic — chỉ dọn những gì một người ngoài mở repo lần đầu sẽ thấy trước tiên.
 
@@ -557,4 +557,17 @@ hoặc runtime state Dagster, nên ignore theo phần mở rộng là an toàn �
 - `spike/spike.py` — GIỮ theo yêu cầu (giá trị lịch sử Phase −1). Thêm đoạn ghi rõ ngay đầu
   docstring: "CODE SPIKE MỘT LẦN — KHÔNG THUỘC PIPELINE CHÍNH THỨC", không CLI/asset nào
   gọi tới, không bảo trì theo chuẩn code pipeline.
+
+**D10 — Sửa khai báo dependency:**
+- `pydantic>=1.10.2` → `pydantic>=2,<3` (`pyproject.toml`) — khớp AGENTS.md mục 2
+  ("Pydantic v2"); `uv.lock` đã khoá 2.13.4 từ trước nhưng ràng buộc cũ vẫn cho phép
+  resolve về v1, sẽ vỡ toàn bộ tầng contract nếu ai đó `uv lock` lại trên máy khác.
+- `requests`, `beautifulsoup4`, `openai`: grep xác nhận CHỈ còn code legacy import —
+  `score/openai_client.py` (`openai`), `ingest/legacy_rss.py` + `ingest/github_fetcher.py`
+  + `ingest/github_trending_fetcher.py` (`requests`; file cuối còn `beautifulsoup4`). Cả 4
+  file đều nằm trong danh sách legacy đã biết ở mục 4, không ai gọi từ CLI/Dagster.
+  **CHƯA xoá 3 dependency này** — đúng yêu cầu, để dành xoá cùng lúc với D3 (xoá code
+  legacy) ở prompt 11, tránh vỡ import trước khi code bị xoá.
+- `uv lock` rồi `uv sync` (tuần tự, đúng mục 8) — resolve sạch (180 gói), venv đồng bộ
+  lại đúng lock. `uv run pytest tests/` → **229/229 pass**, không hỏng gì.
 
