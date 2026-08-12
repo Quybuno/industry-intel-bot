@@ -54,4 +54,29 @@ publish:
   docs_site_dir: "docs-site"
   templates_dir: "templates"
 
+# observability settings (PRODUCTION_PLAN §13.4, task 1.5) — khoá config MỚI, chỉ dùng cho
+# freshness policy Dagster (dagster_project/checks.py). SLA giống nhau cho cả 3 asset theo
+# đúng bảng §13.4 (raw_rss/article_scores/mart_daily_digest đều "< 26h") — mức độ nghiêm
+# trọng (warn/critical) khác nhau nằm ở code, không phải ở số giờ.
+observability:
+  freshness_sla_hours: 26
+  # "Trần an toàn" cho fail_window của raw_rss/article_scores — bắt buộc phải có vì
+  # FreshnessPolicy.time_window() yêu cầu fail_window (§13.4 chỉ định nghĩa mức Warning cho
+  # 2 asset này, không có ngưỡng Critical riêng) — KHÔNG phải một SLA thật, xem giải thích
+  # đầy đủ ở dagster_project/checks.py.
+  freshness_fail_ceiling_hours: 168
+  # Khoá config MỚI (task 1.6, §18.3 "Cost tháng > 80% ngân sách") — trần USD/THÁNG, KHÁC
+  # score.daily_budget_usd ở trên (đó là trần/NGÀY, dừng chấm điểm trong ngày — mục đích
+  # khác: cost_sensor chỉ CẢNH BÁO, không tự dừng gì).
+  monthly_budget_usd: "20.00"
+  # Khoá config MỚI (task 1.6, nhiệm vụ 4 "chống spam") — cùng một điều kiện không gửi lại
+  # trong N giờ. Dùng chung một cửa sổ cho cả 4 sensor — đơn giản, đủ dùng ở quy mô này (P8),
+  # không cần tinh chỉnh riêng từng điều kiện.
+  alert_dedup_window_hours: 6
+  # Khoá config MỚI (task 1.6, §18.3 "> 30% nguồn fail") — ngưỡng NẰM SẴN trong §18.3 (không
+  # phải tự đặt thêm), chỉ chưa có chỗ nào trong code trước task này. KHÔNG có var dbt tương
+  # ứng (task 1.4 không tạo — §13.3 không có kiểm tra "nguồn fail"), nên đọc ở config/app.yaml
+  # thay vì dbt_project.yml.
+  source_fail_rate_threshold: 0.30
+
 timezone: Asia/Ho_Chi_Minh

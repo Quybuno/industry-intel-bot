@@ -1,7 +1,9 @@
-"""Lịch chạy 05:00 giờ Việt Nam cho toàn bộ đồ thị (task 0.12 mục 6, PRODUCTION_PLAN §7.3).
+"""Lịch chạy giờ Việt Nam (task 0.12 mục 6 + task 1.6, PRODUCTION_PLAN §7.3).
 
-Chỉ MỘT lịch — 05:00 cho partition "hôm nay". Lịch bổ sung 12:00/18:00 (chỉ raw_*/
-stg_articles, ingest thêm không tốn LLM) để lại Phase 1 đúng rào chắn task 0.12.
+- 05:00 — toàn bộ đồ thị cho partition "hôm nay" (job chính).
+- 12:00, 18:00 — CHỈ `raw_rss`/`raw_github`/`articles_normalized`/`stg_articles`, ingest bổ
+  sung KHÔNG tốn LLM (không chạm `articles_filtered`/`article_scores` trở đi). Để lại Phase 1
+  ở task 0.12 (rào chắn lúc đó), làm ở task 1.6 (nhiệm vụ 6, đúng lịch đã hoãn).
 """
 
 from __future__ import annotations
@@ -29,4 +31,40 @@ daily_pipeline_schedule = build_schedule_from_partitioned_job(
     # hour_of_day/minute_of_hour (đã tự verify bằng CheckError, không phải đoán). Múi giờ
     # thật lấy từ `timezone="Asia/Ho_Chi_Minh"` đã khai trong `daily_partitions`
     # (partitions.py) — job dùng đúng partitions_def đó nên lịch tự thừa hưởng múi giờ.
+)
+
+#: §7.3: "Chỉ raw_* + stg_articles" — bổ sung `raw_github` (task 1.2, chưa tồn tại lúc §7.3
+#: viết) vào nhóm "raw_*" cho nhất quán, KHÔNG có trong bảng gốc nhưng đúng tinh thần (mọi
+#: asset bronze). `articles_normalized` (task 0.5/0.12, không có trong bảng gốc rút gọn của
+#: plan — xem docstring `assets/silver.py`) BẮT BUỘC phải có trong selection: `stg_articles`
+#: chỉ là VIEW đọc `silver.articles`, không có nó thì view luôn phản ánh dữ liệu CŨ, ingest
+#: 12:00/18:00 sẽ vô nghĩa (bronze có bài mới nhưng silver/stg_articles thì không).
+ingest_only_job = define_asset_job(
+    name="ingest_only_job",
+    description=(
+        "Chỉ ingest + chuẩn hoá (raw_rss, raw_github, articles_normalized, stg_articles) — "
+        "KHÔNG chạm articles_filtered/article_scores trở đi, không tốn LLM (§7.3 12:00/18:00)."
+    ),
+    selection=AssetSelection.keys(
+        "raw_rss", "raw_github", "articles_normalized", "stg_articles"
+    ),
+    partitions_def=daily_partitions,
+)
+
+midday_ingest_schedule = build_schedule_from_partitioned_job(
+    ingest_only_job,
+    name="midday_ingest_schedule",
+    hour_of_day=12,
+    minute_of_hour=0,
+    # KHÔNG set default_status=RUNNING — giữ đúng quy ước đã có ở daily_pipeline_schedule
+    # (STOPPED mặc định, bật thủ công qua UI/GraphQL khi cần): chưa có Dagster daemon
+    # production thật (docs/PROGRESS.md mục 5C), tự ý đổi quy ước một lịch mà không đổi lịch
+    # kia là không nhất quán.
+)
+
+evening_ingest_schedule = build_schedule_from_partitioned_job(
+    ingest_only_job,
+    name="evening_ingest_schedule",
+    hour_of_day=18,
+    minute_of_hour=0,
 )
