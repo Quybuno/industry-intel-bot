@@ -1,0 +1,49 @@
+# Truy vấn GitHub Search API (endpoint /search/repositories) cho task 1.2
+# (PRODUCTION_PLAN §4.1, §7.2, §8.1, §8.5, §24.5).
+#
+# Mỗi mục dưới đây là MỘT truy vấn độc lập, đóng vai trò như một "nguồn" trong
+# bronze.raw_articles (source_type='github') — cùng ý nghĩa source_id/industries như
+# config/sources.yaml (RSS). KHÔNG dùng chung file config/sources.yaml: file đó nạp thẳng
+# vào gold.dim_source qua seed_sources.csv + dbt seed/snapshot (task 1.1) — gộp nguồn github
+# vào đó kéo theo thay đổi tầng dbt, ngoài phạm vi task 1.2 ("KHÔNG đụng tầng score/dbt/
+# publish ở bước này").
+#
+# Hệ quả ĐÃ BIẾT của việc tách riêng này (không phải bug): source_id github chưa có dòng
+# nào trong gold.dim_source, nên macros/scoring.sql::source_tier_score() trả 0 cho các bài
+# này (nhánh "tier không khớp map nào" đã có sẵn từ task 0.10, không crash) —
+# credibility_blended vì vậy chỉ còn 20% điểm LLM thô cho tới khi có task riêng đưa nguồn
+# github vào seed_sources.csv.
+#
+# Mỗi query đã verify THẬT bằng gọi trực tiếp https://api.github.com/search/repositories
+# (unauthenticated, ngày 2026-08-12) — giữ lại 5 topic khớp đúng 5 industries của
+# INDUSTRY_TAGS (src/intel_bot/contracts/llm_score.py: ai/construction/hvac/manufacturing/
+# iot), total_count đáng kể và top kết quả liên quan thật, không rác. Ngưỡng "stars:>N" bắt
+# buộc phải có: đã tự thấy khi thử topic:llm/topic:iot KHÔNG kèm ngưỡng sao, sort=updated
+# (repo mới push gần nhất) trả về gần như toàn dự án cá nhân/nhiễu (vd. "New-Grad-Data-
+# Science-Jobs-2027", bot crypto) — thêm stars:>N lọc được tín hiệu chất lượng thật
+# (vllm-project/vllm, huggingface/transformers, FreeCAD/FreeCAD, apache/plc4x, ...).
+queries:
+  - source_id: github_ai
+    query: "topic:llm stars:>200"
+    industries: [ai]
+    is_enabled: true
+
+  - source_id: github_construction
+    query: "topic:bim stars:>5"
+    industries: [construction]
+    is_enabled: true
+
+  - source_id: github_hvac
+    query: "topic:hvac stars:>10"
+    industries: [hvac]
+    is_enabled: true
+
+  - source_id: github_manufacturing
+    query: "topic:manufacturing stars:>20"
+    industries: [manufacturing]
+    is_enabled: true
+
+  - source_id: github_iot
+    query: "topic:iot stars:>200"
+    industries: [iot]
+    is_enabled: true

@@ -50,6 +50,7 @@ Thêm vào `.env` (xem `.env.example`):
 |---|---|---|
 | `LLM_PROVIDER` | Có, không default | `mock` (miễn phí, an toàn cho dev) hoặc `deepseek` (tốn tiền thật). Thiếu/sai → asset `article_scores`/`article_summaries` fail rõ ràng thay vì âm thầm rơi về mock (bài học từ task 0.11, xem PROGRESS.md §5B — dữ liệu mock từng lọt vào gold vì quên đổi provider) |
 | `HEARTBEAT_URL` | Không | URL dạng `https://hc-ping.com/<uuid>` từ [healthchecks.io](https://healthchecks.io) (free tier) hoặc dịch vụ dead-man's-switch tương đương (§7.5). Để trống thì asset `published_site` chỉ log warning, không fail |
+| `GITHUB_TOKEN` | Không | PAT GitHub cho asset `raw_github` (task 1.2) — để trống vẫn chạy được (unauthenticated, 10 request/phút thay vì 30 với PAT, xem `src/intel_bot/ingest/github_fetcher.py`) |
 
 Postgres phải đang chạy: `docker compose up -d postgres` (cổng 5435 — xem PROGRESS.md mục 3.1).
 
@@ -59,9 +60,9 @@ Postgres phải đang chạy: `docker compose up -d postgres` (cổng 5435 — x
 uv run dagster dev -f dagster_project/definitions.py
 ```
 
-Mở http://localhost:3000 — đồ thị đủ 18 asset (`raw_rss` → … → `published_site`, cộng các
-model dbt như `stg_articles`/`dim_source`/`fct_article_score`/`mart_daily_digest`) hiển thị
-kèm quan hệ phụ thuộc xuyên Python/dbt.
+Mở http://localhost:3000 — đồ thị đủ 19 asset (`raw_rss`/`raw_github` → … → `published_site`,
+cộng các model dbt như `stg_articles`/`dim_source`/`fct_article_score`/`mart_daily_digest`)
+hiển thị kèm quan hệ phụ thuộc xuyên Python/dbt.
 
 ### Materialize một phân vùng (từ UI)
 
@@ -73,7 +74,7 @@ dropdown, mặc định là hôm nay.
 ```powershell
 $env:PYTHONUTF8="1"; $env:PYTHONIOENCODING="utf-8"
 uv run dagster asset materialize `
-  --select "raw_rss,articles_normalized,stg_articles,articles_filtered,article_scores,article_summaries,stg_article_scores,stg_article_summaries,seed_sources,stg_sources,snap_sources,dim_source,fct_article_score,mart_daily_digest,mart_pipeline_health,published_site" `
+  --select "raw_rss,raw_github,articles_normalized,stg_articles,articles_filtered,article_scores,article_summaries,stg_article_scores,stg_article_summaries,seed_sources,stg_sources,snap_sources,dim_source,fct_article_score,mart_daily_digest,mart_pipeline_health,published_site" `
   -f dagster_project/definitions.py --partition 2026-08-11
 ```
 

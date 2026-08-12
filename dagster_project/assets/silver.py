@@ -61,7 +61,12 @@ VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
     key="articles_normalized",
     group_name="silver",
     partitions_def=daily_partitions,
-    deps=["raw_rss"],
+    # task 1.2: thêm raw_github vào deps — normalize_partition() đọc bronze.raw_articles
+    # theo ingest_date, không phân biệt source_type, nên xử lý được bản ghi github mà không
+    # cần nhánh riêng (payload đã được github_fetcher.repo_to_payload() shape sẵn đúng khoá
+    # title/link/summary/updated_parsed mà parse_entry() đọc — xem docstring
+    # src/intel_bot/ingest/github_fetcher.py).
+    deps=["raw_rss", "raw_github"],
     description=(
         "Chuẩn hoá + dedup cấp 1 bronze.raw_articles -> silver.articles (task 0.5). Không "
         "có trong bảng asset gốc §7.2 — xem docstring module."

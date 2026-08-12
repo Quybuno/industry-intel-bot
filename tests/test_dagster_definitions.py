@@ -30,7 +30,8 @@ from dagster_project.resources.llm import LLMResource
 # ---------------------------------------------------------------------------
 EXPECTED_DEPS: dict[str, frozenset[str]] = {
     "raw_rss": frozenset(),
-    "articles_normalized": frozenset({"raw_rss"}),
+    "raw_github": frozenset(),
+    "articles_normalized": frozenset({"raw_rss", "raw_github"}),
     "stg_articles": frozenset({"articles_normalized"}),
     "articles_filtered": frozenset({"stg_articles"}),
     "article_scores": frozenset({"articles_filtered"}),
@@ -77,10 +78,10 @@ def asset_graph() -> Any:
 
 
 def test_definitions_load_with_expected_asset_count(asset_graph: Any) -> None:
-    """`Definitions` load được (không lỗi import/circular dep) và đủ 18 asset — khớp
-    docs/PROGRESS.md mục 5C/6."""
+    """`Definitions` load được (không lỗi import/circular dep) và đủ 19 asset — 18 ở
+    docs/PROGRESS.md mục 5C/6 + `raw_github` (task 1.2)."""
     keys = {k.to_user_string() for k in asset_graph.get_all_asset_keys()}
-    assert len(keys) == 18
+    assert len(keys) == 19
     assert keys == set(EXPECTED_DEPS)
 
 
