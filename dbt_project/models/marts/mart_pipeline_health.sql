@@ -61,14 +61,32 @@ quarantine_daily as (
 ),
 
 cost_latency_daily as (
+    -- Bổ sung task 1.4: mean/stddev_importance (drift), scored_count, empty_tag_count —
+    -- CÙNG trục ngày scored_at::date với cost/latency (không phải first_seen_date), vì cả
+    -- 3 thứ này đều là hệ quả trực tiếp của MỘT lần chấm điểm (industry_tags được ghi ở
+    -- đúng lúc chấm — xem score/runner.py::_persist_score, UPDATE status='scored' kèm
+    -- industry_tags trong cùng transaction). Loại provider test (`mock`) bằng
+    -- is_production_model() — cùng hàng rào đã dùng ở int_scores_latest (§9 AGENTS.md) —
+    -- để không lẫn dữ liệu test/CI vào theo dõi drift/chi phí thật.
     select
-        scored_at::date as pipeline_date,
-        sum(cost_usd) as total_cost_usd,
-        percentile_cont(0.5) within group (order by latency_ms)
+        scores.scored_at::date as pipeline_date,
+        sum(scores.cost_usd) as total_cost_usd,
+        percentile_cont(0.5) within group (order by scores.latency_ms)
             as latency_p50_ms,
-        percentile_cont(0.95) within group (order by latency_ms)
-            as latency_p95_ms
-    from {{ ref('stg_article_scores') }}
+        percentile_cont(0.95) within group (order by scores.latency_ms)
+            as latency_p95_ms,
+        count(*) as scored_count,
+        avg(scores.importance) as mean_importance,
+        stddev_samp(scores.importance) as stddev_importance,
+        count(*) filter (
+            where
+            articles.industry_tags is null
+            or array_length(articles.industry_tags, 1) is null
+        ) as empty_tag_count
+    from {{ ref('stg_article_scores') }} as scores
+    inner join {{ ref('stg_articles') }} as articles
+        on scores.article_id = articles.article_id
+    where {{ is_production_model('scores.model_name') }}
     group by 1
 ),
 
@@ -91,6 +109,8 @@ select
     dates.pipeline_date,
     cost_latency_daily.latency_p50_ms,
     cost_latency_daily.latency_p95_ms,
+    cost_latency_daily.mean_importance,
+    cost_latency_daily.stddev_importance,
     coalesce(ingest_daily.ingest_count, 0) as ingest_count,
     coalesce(status_daily.eligible_count, 0) as eligible_count,
     coalesce(status_daily.excluded_count, 0) as excluded_count,
@@ -101,6 +121,41 @@ select
     coalesce(quarantine_daily.quarantine_count, 0) as quarantine_count,
     coalesce(cost_latency_daily.total_cost_usd, 0) as total_cost_usd,
     coalesce(source_health_daily.source_fail_count, 0) as source_fail_count,
+    -- Bổ sung task 1.4 (§13.3, cột `scored_count` trở xuống): NULL khi không có bài nào
+    -- chấm ngày đó — KHÔNG suy diễn về 0 (P4, "không suy diễn hộ") — 0 nghĩa là "importance
+    -- trung bình đúng bằng 0", sai với thực tế "chưa hề chấm bài nào". `scored_count`/
+    -- `empty_tag_count` là số đếm thật nên coalesce về 0 hợp lý (đếm được, không phải suy
+    -- diễn). `mean_importance`/`stddev_importance` (đã đưa lên đầu SELECT ở trên, cạnh
+    -- latency, do sqlfluff ST06 yêu cầu cột giản đơn đứng trước biểu thức/aggregate) CŨNG
+    -- thuộc nhóm bổ sung này — giữ NULL, không coalesce.
+    coalesce(cost_latency_daily.scored_count, 0) as scored_count,
+    coalesce(cost_latency_daily.empty_tag_count, 0) as empty_tag_count,
+    case
+        when coalesce(cost_latency_daily.scored_count, 0) = 0 then null
+        else
+            cost_latency_daily.empty_tag_count::numeric
+            / cost_latency_daily.scored_count
+    end as empty_tag_rate,
+    case
+        when coalesce(cost_latency_daily.scored_count, 0) = 0 then null
+        else cost_latency_daily.total_cost_usd / cost_latency_daily.scored_count
+    end as cost_per_article,
+    -- quarantine_rate: mẫu số = scored_count + quarantine_count (mọi lần "thử chấm" trong
+    -- ngày, dù thành công hay quarantine) — KHÔNG dùng eligible_count (§7.2 mục 13, khác
+    -- trục ngày first_seen_date, gộp cả bài eligible CHƯA từng được thử chấm).
+    case
+        when
+            coalesce(cost_latency_daily.scored_count, 0)
+            + coalesce(quarantine_daily.quarantine_count, 0)
+            = 0
+            then null
+        else
+            coalesce(quarantine_daily.quarantine_count, 0)::numeric
+            / (
+                coalesce(cost_latency_daily.scored_count, 0)
+                + coalesce(quarantine_daily.quarantine_count, 0)
+            )
+    end as quarantine_rate,
     current_timestamp as computed_at
 from dates
 left join ingest_daily on dates.pipeline_date = ingest_daily.pipeline_date

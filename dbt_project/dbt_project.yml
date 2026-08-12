@@ -90,3 +90,23 @@ vars:
   # 0.11): dữ liệu dev trộn lẫn provider mock (test) và deepseek (thật) trên CÙNG batch bài
   # thật, nên gold vô tình lẫn nội dung giả lập nếu không lọc ở đây.
   non_production_model_names: ["mock"]
+
+  # ---- Anomaly detection (§13.3, task 1.4) — 6 singular test trên mart_pipeline_health ----
+  # 3 kiểm tra so với BASELINE cửa sổ N-ngày-trước (ingest count, mean importance, cost/bài)
+  # dùng CHÍNH độ dài cửa sổ làm luôn ngưỡng "đủ dữ liệu tối thiểu" (nhiệm vụ 4): một ngày
+  # chỉ được đánh giá khi có nhiều hơn window_days dòng lịch sử ĐỨNG TRƯỚC nó trong chính
+  # mart_pipeline_health (row_number() trên trục pipeline_date đã có sẵn — không suy diễn
+  # ngày thiếu, không đếm ngày chưa tồn tại). Ít hơn thì test bỏ qua ngày đó (PASS), không
+  # coi "chưa đủ dữ liệu" là bất thường. 3 kiểm tra còn lại (quarantine rate, stddev
+  # importance, empty tag rate) là ngưỡng TUYỆT ĐỐI theo đúng ngày đang xét, không cần
+  # baseline nên không cần quy tắc tối thiểu riêng — chỉ bỏ qua khi cột nguồn NULL (chưa có
+  # hoạt động chấm điểm ngày đó, không suy diễn 0%).
+  anomaly_ingest_window_days: 14
+  anomaly_ingest_stddev_threshold: 3.0
+  anomaly_quarantine_rate_threshold: 0.10
+  anomaly_importance_window_days: 7
+  anomaly_importance_drift_threshold: 1.0
+  anomaly_importance_stddev_min: 0.8
+  anomaly_empty_tag_rate_threshold: 0.05
+  anomaly_cost_window_days: 7
+  anomaly_cost_drift_pct: 0.50

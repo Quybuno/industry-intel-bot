@@ -59,9 +59,41 @@ models:
           - not_null
 
   - name: mart_pipeline_health
-    description: Một dòng một ngày — metrics vận hành (§5.8).
+    description: >
+      Một dòng một ngày — metrics vận hành (§5.8, §18.2) + input cho 6 kiểm tra bất thường
+      (§13.3, task 1.4, xem dbt_project/tests/assert_*_anomaly*.sql +
+      assert_quarantine_rate_reasonable.sql/assert_importance_stddev_sufficient.sql/
+      assert_empty_tag_rate_reasonable.sql).
     columns:
       - name: pipeline_date
         tests:
           - unique
           - not_null
+      - name: scored_count
+        description: >
+          Số bài được chấm điểm bởi provider PRODUCTION (loại `mock`, xem
+          non_production_model_names) trong ngày, theo trục scored_at::date. Bổ sung task
+          1.4 — mẫu số thật cho cost_per_article/quarantine_rate, KHÔNG dùng eligible_count
+          (khác trục ngày first_seen_date).
+      - name: mean_importance
+        description: >
+          Trung bình `importance` các bài chấm trong ngày (provider production). NULL nếu
+          ngày đó chưa chấm bài nào — KHÔNG suy diễn 0. Bổ sung task 1.4, dùng cho kiểm tra
+          model drift (§13.3).
+      - name: stddev_importance
+        description: >
+          Độ lệch chuẩn mẫu (STDDEV_SAMP) `importance` trong ngày. NULL nếu < 2 bài được
+          chấm (không đủ điểm dữ liệu để tính). Bổ sung task 1.4.
+      - name: empty_tag_count
+        description: Số bài được chấm trong ngày có `industry_tags` rỗng/NULL. Bổ sung task 1.4.
+      - name: empty_tag_rate
+        description: >
+          `empty_tag_count / scored_count`. NULL nếu `scored_count = 0` — không suy diễn 0%.
+          Bổ sung task 1.4.
+      - name: cost_per_article
+        description: >
+          `total_cost_usd / scored_count`. NULL nếu `scored_count = 0`. Bổ sung task 1.4.
+      - name: quarantine_rate
+        description: >
+          `quarantine_count / (scored_count + quarantine_count)`. NULL nếu mẫu số = 0. Bổ
+          sung task 1.4.
