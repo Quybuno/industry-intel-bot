@@ -787,3 +787,64 @@ Verify: `ruff check`/`mypy --strict`/`ruff format --check` sạch trên file m�
 pytest tests/` — **250/250 pass** (223 sau D3 + 27 mới) — vượt mốc 229 gốc dù D1 đã xoá 12
 test composite (11 + 1), đúng yêu cầu DONE WHEN "không test cũ nào bị xoá để cho xanh" (chỉ
 xoá test của code đã xoá theo D1, không xoá để né lỗi).
+
+## 11. Verify cuối D1–D4 — chạy lại toàn đồ thị Dagster thật, kiểm chứng luồng D1 end-to-end
+
+Sau khi D1–D4 xong, chạy lại **toàn bộ đồ thị 16 asset buildable** (bỏ 2 asset "external"
+`silver/source_health`/`silver/score_quarantine`, không tự materialize được) cho partition
+`2026-08-11` — partition ĐÃ materialize nhiều lần trước đó (xem mục 5C/6) — bằng đúng lệnh
+README đã ghi (`LLM_PROVIDER=mock`, an toàn/miễn phí):
+
+```
+PYTHONUTF8=1 PYTHONIOENCODING=utf-8 LLM_PROVIDER=mock uv run dagster asset materialize \
+  --select "raw_rss,articles_normalized,stg_articles,articles_filtered,article_scores,article_summaries,stg_article_scores,stg_article_summaries,seed_sources,stg_sources,snap_sources,dim_source,fct_article_score,mart_daily_digest,mart_pipeline_health,published_site" \
+  -f dagster_project/definitions.py --partition 2026-08-11
+```
+
+**Kết quả: `RUN_SUCCESS`.** Đây là lần đầu tiên đồ thị chạy thật với `article_scores`/
+`article_summaries` là HAI asset tách rời (D1) thay vì một multi_asset — xác nhận trực tiếp
+luồng mới hoạt động đúng: `article_scores` chạy xong → `daily_dbt_assets` build
+`fct_article_score` (dagster-dbt tự subset đúng lúc, không cần code orchestration thủ công
+nào ở phía Dagster, đúng thiết kế D1) → `article_summaries` mới chạy, đọc top-K từ
+`gold.fct_article_score` vừa build.
+
+Đếm lại trước/sau (không đổi ở 2 bảng DONE WHEN yêu cầu, dù `bronze`/`silver` có tăng vì
+ingest RSS thật lấy thêm bài mới của partition 08-11 — giống hệt hành vi đã ghi ở 5C):
+
+| Bảng | Trước | Sau | Đổi? |
+|---|---|---|---|
+| `bronze.raw_articles` | 174 | 190 | Tăng (ingest RSS thật lấy thêm bài mới) |
+| `silver.articles` | 115 | 126 | Tăng (theo bronze) |
+| `silver.article_scores` | 88 | 99 | Tăng (mock chấm bài mới của 08-11) |
+| `silver.article_summaries` | 45 | 45 | **KHÔNG đổi** |
+| **`gold.fct_article_score`** | **12** | **12** | **KHÔNG đổi một dòng nào (DONE WHEN)** |
+| **`gold.mart_daily_digest`** | **12** | **12** | **KHÔNG đổi một dòng nào (DONE WHEN)** |
+| `gold.mart_pipeline_health` | 2 | 2 | KHÔNG đổi |
+
+11 điểm mock mới (99−88) của partition 08-11 KHÔNG lọt vào `fct_article_score` — đúng hàng
+rào `non_production_model_names` (mục 9 AGENTS.md/5B) đang hoạt động, và giờ hàng rào này áp
+dụng ĐÚNG LÚC hơn D1 cũ: trước D1, top-K tóm tắt chọn theo composite tạm trong Python KHÔNG
+biết gì về hàng rào này (chỉ dbt lọc SAU khi đã tồn tại); từ D1, `run_summarize_top_k_partition`
+đọc thẳng từ `gold.fct_article_score` nên tự động chỉ thấy bài đã qua hàng rào — không cần
+biết khái niệm "mock" tồn tại. Xác nhận thêm: `SELECT DISTINCT model_name FROM
+gold.fct_article_score` → chỉ `deepseek-v4-flash`, không dòng nào chứa "mock"/"giả lập" trong
+`gold.mart_daily_digest.summary_vi`. Heartbeat `200 OK` (asset `published_site`).
+
+**Tổng kết trạng thái sau D1–D4:** `grep -r "compute_composite_score" src/ tests/` → rỗng.
+`composite.py` đã xoá. `uv run intel-bot doctor` chạy được. `ruff check src/` + `mypy
+--strict src/` sạch toàn bộ. `uv run pytest tests/` → 250 pass (tăng so với 229, không xoá
+test cũ để né lỗi — chỉ xoá test của code đã xoá). Dagster `RUN_SUCCESS` cho partition đã
+materialize trước đó, `gold.fct_article_score`/`gold.mart_daily_digest` không đổi một dòng.
+Mục 3.4 và mục 4 đã đóng (đánh dấu "ĐÃ SỬA"/"ĐÃ XOÁ" ngay tiêu đề). Mục 5A/5C đã ghi chú
+D1/D4 trả nợ ngay tại chỗ nợ được ghi ban đầu.
+
+**Cố ý chưa làm / ngoài phạm vi D1–D4:**
+- `raw_github`, sensor, lịch 12:00/18:00 bổ sung, Dagster daemon production — vẫn ngoài
+  phạm vi (rào chắn "KHÔNG thêm asset, KHÔNG đụng sensor" của task này + rào chắn cũ từ
+  0.12 chưa ai gỡ).
+- Migration mới cho D1 — KHÔNG cần: D1 không đổi schema nào (đọc thêm từ bảng
+  `gold.fct_article_score` đã tồn tại từ 0.10, không tạo cột/bảng mới).
+- `setup_logging()` trong `observability/logging.py` (và `Settings`/`settings` ở
+  `config.py` mà nó dùng) có vẻ là code chết (không ai gọi, xem mục 10 D3) — KHÔNG xoá vì
+  không nằm trong danh sách mục 4 và ngoài phạm vi D3 (chỉ sửa type cho sạch mypy). Nếu có
+  task dọn dẹp tiếp theo, đây là ứng viên.
