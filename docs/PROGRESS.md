@@ -24,8 +24,8 @@
 | 0.11 | Publish | ✅ | Xem mục 5B — JSON + HTML tĩnh chạy thật; 24 bài lúc mới xong, còn 12 sau khi 5B tự sửa lỗi mock (xem 5B) |
 | 0.12 + 0.13 | Dagster asset graph + schedule + heartbeat | ✅ | Xem mục 5C — `dagster dev` chạy thật, materialize toàn đồ thị + backfill + heartbeat thật đều verify được |
 
-Lệnh CLI đã có thật (chạy bằng `uv run python -m src.intel_bot.cli <lệnh>` — xem mục 3.4
-về lý do không dùng `uv run intel-bot`):
+Lệnh CLI đã có thật (chạy bằng `uv run python -m src.intel_bot.cli <lệnh>` HOẶC
+`uv run intel-bot <lệnh>` — cả hai đều chạy được từ D2, xem mục 3.4):
 
 ```
 ingest --date YYYY-MM-DD
@@ -141,15 +141,33 @@ if isinstance(sys.stdout, io.TextIOWrapper) and sys.stdout.encoding.lower() != "
 Đã áp dụng ở `cli.py`. Khi debug bằng `python -c "..."` một lần (không sửa file), dùng
 `PYTHONIOENCODING=utf-8` trước lệnh thay vì sửa code.
 
-### 3.4 `uv run intel-bot <cmd>` KHÔNG chạy được — lỗi packaging từ task 0.1
+### 3.4 `uv run intel-bot <cmd>` KHÔNG chạy được — lỗi packaging từ task 0.1 — **ĐÃ SỬA ở D2**
 
 `pyproject.toml` map wheel `src/intel_bot` → `intel_bot`, nhưng TOÀN BỘ codebase import
 kiểu `from src.intel_bot.xxx import yyy`. Console-script entry point
 (`intel-bot = "src.intel_bot.cli:main"`) vì vậy luôn báo
-`ModuleNotFoundError: No module named 'src'`. Workaround dùng xuyên suốt dự án:
-`uv run python -m src.intel_bot.cli <lệnh>` (chạy từ repo root). Chưa có task nào sửa gốc
-rễ (đổi toàn bộ import sang `intel_bot.xxx` hoặc sửa lại wheel mapping) — đây là việc dọn
-dẹp còn treo, không thuộc phạm vi bất kỳ task nào đã giao.
+`ModuleNotFoundError: No module named 'src'`. Workaround dùng xuyên suốt dự án tới D2:
+`uv run python -m src.intel_bot.cli <lệnh>` (chạy từ repo root) — **vẫn còn dùng được, hai
+cách giờ tương đương.**
+
+**D2 đã chọn sửa wheel mapping (KHÔNG đổi import):** ~40 file đang import
+`from src.intel_bot.xxx` xuyên suốt dự án (cli.py, mọi module `src/`, toàn bộ
+`dagster_project/`, toàn bộ `tests/`) — đổi hết sang `intel_bot.xxx` là diff lớn, rủi ro cao
+cho lợi ích thuần packaging, và vi phạm tinh thần AGENTS.md mục 5.5 (không tự ý đổi quy ước
+đã dùng xuyên suốt dự án). Thay vào đó:
+- `[tool.hatch.build.targets.wheel] packages = ["src/intel_bot"]` → `packages = ["src"]`
+  (đóng gói "src" làm package gốc thay vì strip mất tiền tố "src").
+- Thêm `src/__init__.py` RỖNG — hatchling cần "src" là package thật (có `__init__.py`), không
+  chỉ namespace package, để nhận diện đúng khi build wheel. `src/intel_bot/` vẫn KHÔNG có
+  `__init__.py` (giữ nguyên namespace package như trước — Python cho phép namespace package
+  lồng trong package thường).
+- Verify: `uv sync` build lại wheel sạch, `uv run intel-bot doctor` chạy thật (kết nối
+  Postgres, liệt kê đủ bronze/silver/gold) — không còn `ModuleNotFoundError`.
+  `mypy --strict src/`/`ruff check src/` trước và sau khi thêm `src/__init__.py` ra ĐÚNG
+  cùng 58/62 lỗi (đã tự verify bằng `git stash -u` so sánh) — không sinh lỗi mới, toàn bộ lỗi
+  còn lại nằm trong code legacy (mục 4, D3 xoá) + vài file thật có nợ type nhỏ
+  (`config.py`, `db/health.py`, `observability/logging.py`) sẽ dọn nốt ở D3 vì D3 yêu cầu
+  `src/` sạch toàn bộ.
 
 ## 4. Code v1 legacy còn trong repo — KHÔNG dùng, chỉ để import không vỡ
 
@@ -680,3 +698,10 @@ dùng chọn: **một lệnh CLI `score` duy nhất, tự gọi `dbt build` bên
   ở mục 3.2) — `uv run pytest` treo vô thời hạn (không timeout rõ ràng) vì `engine.connect()`
   cố nối Postgres trong khi Docker daemon đã chết, không phải lỗi do code D1. Khởi động lại
   Docker Desktop + `docker compose up -d postgres` rồi chạy lại là qua.
+
+**D2 — Sửa packaging (nợ từ mục 3.4):** đã cân nhắc 2 hướng, chọn sửa wheel mapping thay vì
+đổi import (lý do đầy đủ + chi tiết kỹ thuật đã ghi lại ngay ở mục 3.4, không lặp lại ở đây
+để tránh hai nguồn sự thật). Tóm tắt: `pyproject.toml` `packages = ["src"]` (từ
+`["src/intel_bot"]`) + `src/__init__.py` rỗng mới. Verify: `uv run intel-bot doctor` chạy
+thật, `uv run pytest` 223/223 pass, `mypy --strict`/`ruff check` trên `src/` không sinh lỗi
+mới so với trước khi đổi (đã tự verify bằng `git stash -u` so sánh số lỗi trước/sau).

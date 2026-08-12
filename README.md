@@ -20,11 +20,11 @@ uv sync
 3. Khởi động Postgres: `docker compose up -d postgres` (cổng **5435**, không phải 5432 —
    xem `docs/PROGRESS.md` mục 3.1).
 
-4. Chạy CLI thật (`uv run intel-bot` KHÔNG chạy được — lỗi packaging đã biết, xem
-   `docs/PROGRESS.md` mục 3.4; luôn dùng dạng `-m` dưới đây):
+4. Chạy CLI thật — cả hai cách dưới đây đều chạy được (`uv run intel-bot` từng lỗi
+   packaging, đã sửa ở D2, xem `docs/PROGRESS.md` mục 3.4):
 
 ```powershell
-uv run python -m src.intel_bot.cli doctor
+uv run intel-bot doctor
 uv run python -m src.intel_bot.cli ingest --date 2026-08-12
 ```
 

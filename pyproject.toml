@@ -50,7 +50,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/intel_bot"]
+# D2 (PROGRESS.md mục 3.4): TOÀN BỘ codebase import kiểu "from src.intel_bot.xxx import yyy"
+# (đã đổi hết sang "intel_bot.xxx" là phương án còn lại, nhưng đó là đổi ~40 file chỉ để
+# khớp quy ước packaging chuẩn — rủi ro/diff lớn hơn hẳn lợi ích, và AGENTS.md mục 5.5 cấm
+# tự ý đổi cấu trúc/quy ước import đã dùng xuyên suốt dự án). Sửa NGƯỢC LẠI: đóng gói "src"
+# làm package gốc thay vì "src/intel_bot" (trước đây strip mất tiền tố "src", ra top-level
+# "intel_bot" — khác hẳn cách mọi nơi trong repo import) — để "import src.intel_bot.xxx"
+# hoạt động đúng sau khi cài qua console-script/wheel, không chỉ khi chạy "python -m" từ
+# repo root. Cần "src/__init__.py" thật (không phải namespace package) để hatchling nhận
+# "src" là package hợp lệ.
+packages = ["src"]
 
 [tool.mypy]
 # Repo dùng "src.intel_bot.*" nhưng không có __init__.py (implicit namespace package) —
