@@ -508,7 +508,7 @@ làm") — verify bằng chạy thật (`dagster dev`, `dagster asset materializ
 bằng bộ test tự động. `ruff check`/`ruff format`/`mypy --strict` sạch trên toàn bộ
 `dagster_project/`.
 
-## 9. Đã làm — Vệ sinh repo (D8–D11, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
+## 9. Đã làm — Vệ sinh repo (D8–D12, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
 
 Task KHÔNG đụng logic — chỉ dọn những gì một người ngoài mở repo lần đầu sẽ thấy trước tiên.
 
@@ -577,3 +577,50 @@ chiếu cứng khác: `docs/PRODUCTION_PLAN.md`, `docs/PROGRESS.md` đã đúng 
 grep toàn bộ `README.md` + `docs/*.md` cho tên 3 file này không thấy sai lệch hoa/thường
 nào — mọi link README đều mở được.
 
+**D12 — README nói đúng sự thật:** README mở đầu cũ ghi "Minimal scaffold... many commands
+are scaffolds" và hướng dẫn `python -m venv` + `pip install -e .` — sai trên cả hai mặt:
+mâu thuẫn AGENTS.md mục 2 (bắt buộc `uv`, không `pip` trực tiếp) và sai thực tế (pipeline đã
+chạy end-to-end thật từ 0.10-0.13). Đã sửa lại phần mở đầu (giữ nguyên toàn bộ phần Dagster
+phía dưới, vốn đã đúng và chi tiết — không viết lại cả file, để dành prompt 22 cấu trúc lại):
+- Mô tả đúng pipeline thật (bronze/silver/gold, LLM tiếng Việt, publish tĩnh) thay vì
+  "minimal scaffold".
+- Quick start đổi sang `uv sync` (không còn `python -m venv`/`pip install -e .`).
+- Liệt kê đúng danh sách lệnh CLI đã chạy thật (`ingest`/`validate-sources`/`normalize`/
+  `filter`/`score`/`publish`/`doctor`), nêu rõ CHỈ `pipeline`/`eval` còn là placeholder —
+  không nói cả bộ CLI là scaffold.
+- Thêm ghi chú cổng Postgres 5435 và lỗi `uv run intel-bot` (trỏ sang PROGRESS.md mục 3.1/
+  3.4) ngay ở quick start, thay vì để người đọc tự đâm vào 2 cạm bẫy này.
+- Verify: `uv run python -m src.intel_bot.cli doctor` chạy thật, kết nối Postgres OK, liệt
+  kê đủ 3 schema (bronze 1 bảng, silver 5 bảng, gold 6 bảng). Grep lại README không còn
+  `pip install`/`venv`/gọi cả pipeline là "placeholder"/"scaffold" — 2 chỗ còn chứa từ
+  "scaffold"/"placeholder" đều đúng nghĩa (khẳng định KHÔNG PHẢI scaffold; nói đúng
+  `pipeline`/`eval` là 2 lệnh CHƯA làm, không phải toàn bộ CLI).
+
+**Lệch/ghi chú đáng chú ý:**
+- `AGENTS.md` có một thay đổi nội dung CHƯA COMMIT từ trước khi task dọn dẹp này bắt đầu
+  (thêm mục 7–9: đọc PROGRESS.md trước plan, bảng cạm bẫy môi trường, quy tắc dữ liệu test)
+  — không phải do task này tạo ra. Commit D11 CHỈ đổi tên file (`git mv` không kèm `git add`
+  nội dung), nên nó lấy đúng nội dung đã commit gần nhất (6 mục gốc) đặt dưới tên mới — phần
+  mục 7–9 vẫn nằm nguyên trong working tree dưới dạng thay đổi CHƯA COMMIT, đúng rào chắn
+  AGENTS.md mục 5.3 (không tự sửa/commit nội dung AGENTS.md khi không được yêu cầu rõ ràng).
+  Xác nhận bằng `git show HEAD:AGENTS.md` — dừng ở mục 6, không có mục 7–9. Người dùng cần tự
+  quyết định có muốn commit phần nội dung đó không.
+- `uv sync` sau khi đổi ràng buộc pydantic tiện thể gỡ 4 gói không còn trong lock
+  (`ast-serialize`, `dbt-core-experimental-parser`, `metricflow`, `rapidfuzz`) — đây là
+  extra của `dbt-core` (semantic layer) từng bị cài lẻ vào venv trước đó nhưng chưa từng có
+  trong `uv.lock`/`pyproject.toml`; `uv sync` chỉ đang đồng bộ venv về đúng lock, không phải
+  hệ quả của việc đổi ràng buộc pydantic. Đã verify `dbt build`/`pytest` không phụ thuộc
+  chúng (229 test vẫn pass).
+
+**Cố ý chưa làm** (ngoài phạm vi D8–D12, để dành D1–D4 hoặc task sau):
+- Xoá code v1 legacy (`db/models.py`, `db/repositories.py`, `db/session.py`,
+  `jobs/ingest_job.py`, `jobs/filter_job.py`, `ingest/legacy_rss.py`,
+  `ingest/legacy_normalizer.py`, `filter/legacy_keyword_filter.py`,
+  `filter/embedding_filter.py`, `score/openai_client.py`) và 3 dependency liên quan — nằm
+  ở D3 (prompt 11), không phải task này.
+- Chưa đụng `.env`/`.env.example` (rào chắn AGENTS.md mục 5.3) ngoài việc mở rộng pattern
+  `.env.*` trong `.gitignore`.
+- Chưa sửa gốc rễ lỗi `uv run intel-bot` (mục 3.4) — không thuộc phạm vi D8–D12, README chỉ
+  ghi rõ workaround.
+- README chưa được cấu trúc lại toàn diện (để dành prompt 22 theo đúng yêu cầu D12) — chỉ
+  sửa phần mở đầu cho không còn nói sai.

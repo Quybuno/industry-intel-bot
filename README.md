@@ -1,27 +1,40 @@
 # Industry Intelligence Bot
 
-Minimal scaffold for the Industry Intelligence Bot. Contains ingest → filter → score → publish pipeline.
+Batch data pipeline chạy hằng ngày: thu thập tin từ ~20 nguồn RSS và GitHub Search API →
+chuẩn hoá, khử trùng lặp → chấm điểm và tóm tắt tiếng Việt bằng LLM → mô hình hoá bằng dbt
+(bronze/silver/gold) → xuất bản trang tĩnh. Pipeline đã chạy thật end-to-end (CLI và
+Dagster, xem `docs/PROGRESS.md` mục 1) — không còn là scaffold/placeholder.
 
 Quick start (dev):
 
-1. Create virtualenv and install dependencies:
+1. Cài dependency bằng `uv` (bắt buộc theo AGENTS.md mục 2 — không dùng `pip`/`poetry`
+   trực tiếp):
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -U pip
-python -m pip install -e .
+uv sync
 ```
 
-2. Copy `.env.example` → `.env` and edit values.
+2. Copy `.env.example` → `.env` và điền giá trị thật (xem `docs/PROGRESS.md` mục 7 để
+   biết những gì đã điền sẵn trên máy dev, ví dụ cổng Postgres).
 
-3. Run basic CLI (placeholders):
+3. Khởi động Postgres: `docker compose up -d postgres` (cổng **5435**, không phải 5432 —
+   xem `docs/PROGRESS.md` mục 3.1).
+
+4. Chạy CLI thật (`uv run intel-bot` KHÔNG chạy được — lỗi packaging đã biết, xem
+   `docs/PROGRESS.md` mục 3.4; luôn dùng dạng `-m` dưới đây):
 
 ```powershell
-python -m src.intel_bot.cli ingest
+uv run python -m src.intel_bot.cli doctor
+uv run python -m src.intel_bot.cli ingest --date 2026-08-12
 ```
 
-This repo is under active development; many commands are scaffolds. Follow `docs/PRODUCTION_PLAN.md` for design guidance.
+Các lệnh đã chạy thật: `ingest`, `validate-sources`, `normalize`, `filter`, `score`,
+`publish`, `doctor` (xem `docs/PROGRESS.md` mục 1). `pipeline` và `eval` vẫn còn là
+placeholder — hai lệnh này CHƯA làm, không phải cả bộ CLI.
+
+Đọc `docs/PROGRESS.md` **trước** `docs/PRODUCTION_PLAN.md` (AGENTS.md mục 7) —
+PROGRESS.md là nhật ký triển khai, nguồn sự thật về code hiện có; PRODUCTION_PLAN.md là
+bản thiết kế tĩnh.
 
 ## Dagster (task 0.12/0.13 — đồ thị asset có partition theo ngày)
 
