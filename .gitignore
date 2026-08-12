@@ -11,9 +11,19 @@ wheels/
 
 # Secrets cục bộ — không commit
 .env
+.env.*
+!.env.example
 
-data/*.db
+# CSDL nguồn sự thật là PostgreSQL (AGENTS.md mục 2) — không có .db nào trong repo
+# là source hợp lệ, toàn bộ *.db từng thấy đều là SQLite rác (scaffold v1 hoặc
+# runtime state của Dagster) nên ignore rộng theo phần mở rộng là an toàn.
+*.db
 logs/*.log
+
+# Dagster runtime home tạm (DAGSTER_HOME mặc định khi không set env) — state chạy,
+# không phải source.
+.tmp_dagster_home*/
+dagster_home/
 
 # dbt (task 0.10) — artifact sinh ra khi chạy, không phải source
 dbt_project/target/

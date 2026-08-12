@@ -507,3 +507,37 @@ Riêng `dagster_project/` (task 0.12+0.13): **KHÔNG có test pytest** (xem 5C "
 làm") — verify bằng chạy thật (`dagster dev`, `dagster asset materialize`) chứ không phải
 bằng bộ test tự động. `ruff check`/`ruff format`/`mypy --strict` sạch trên toàn bộ
 `dagster_project/`.
+
+## 9. Đã làm — Vệ sinh repo (D8, giữa Phase 0 và task dọn nợ kỹ thuật D1–D4)
+
+Task KHÔNG đụng logic — chỉ dọn những gì một người ngoài mở repo lần đầu sẽ thấy trước tiên.
+
+**D8 — Gỡ rác runtime khỏi git (`git rm --cached`, không xoá khỏi đĩa):**
+`.tmp_dagster_home_t1amzuw0/history/runs.db`, `.../history/runs/.db`,
+`.../history/runs/index.db`, `.../schedules/schedules.db`, `data/dev.db`,
+`data/rss_articles.db`, `data/test_ingest.db`, `logs/app.log` — 8 file, tất cả vẫn còn
+trên đĩa, chỉ gỡ khỏi index.
+
+**Kiểm tra secret trước khi gỡ (bắt buộc theo yêu cầu task) — KẾT QUẢ: KHÔNG có secret,
+đã tiến hành gỡ:**
+- 4 file Dagster: chỉ có 1 commit lịch sử (`3ba8754`) chạm tới các đường dẫn này — dump
+  từng file ở HEAD bằng `git show`, đọc bằng `sqlite3` trực tiếp. `runs.db.runs` = 0 dòng
+  (không có `run_body`/run config nào từng được ghi); `event_logs` ở 2 file `.db`/`index.db`
+  chỉ có 18 dòng `FRESHNESS_STATE_CHANGE`, nội dung message rỗng, JSON event chỉ chứa
+  `AssetKey` + timestamp, không có biến môi trường hay run config. `schedules.db` toàn bảng
+  rỗng.
+- `data/dev.db`, `data/rss_articles.db`, `data/test_ingest.db`, `logs/app.log`: chỉ có 1
+  commit lịch sử (`2691690`). Quét byte thô bằng regex cho các mẫu
+  `api_key|secret|password|token|DEEPSEEK|sk-|AKIA|...` — có match nhưng khi soi ngữ cảnh
+  toàn bộ đều là nội dung bài báo RSS thật (vd. "...your secret weapon for creating better
+  content...", "...poached employees to bring over confidential presentations, secret
+  prototypes...", các URL chứa chuỗi con "risk-"/"musk-" khớp nhầm pattern `sk-`) — không
+  phải giá trị credential thật. `logs/app.log` không match gì cả.
+- **Kết luận: KHÔNG dừng lại, đã `git rm --cached` cả 8 file như kế hoạch.** Không cần viết
+  lại git history.
+
+Bổ sung `.gitignore`: `.env.*` (kèm `!.env.example`), `*.db` (phạm vi TOÀN repo, không chỉ
+`data/*.db` — lý do: kiến trúc đã chốt là PostgreSQL, AGENTS.md mục 2; không có `.db` nào
+trong repo là nguồn sự thật hợp lệ, mọi `.db` từng thấy đều là SQLite rác của scaffold v1
+hoặc runtime state Dagster, nên ignore theo phần mở rộng là an toàn — xoá luôn dòng
+`data/*.db` cũ vì đã bị `*.db` bao trùm), `.tmp_dagster_home*/`, `dagster_home/`.
