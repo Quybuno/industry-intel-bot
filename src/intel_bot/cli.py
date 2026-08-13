@@ -41,6 +41,7 @@ from src.intel_bot.score.providers.deepseek import DeepSeekProvider
 from src.intel_bot.score.providers.deepseek import max_per_run as deepseek_max_per_run
 from src.intel_bot.score.providers.mock import ZERO_PRICING, MockProvider
 from src.intel_bot.score.runner import (
+    RunnerResult,
     run_score_partition,
     run_summarize_top_k_partition,
 )
@@ -289,17 +290,14 @@ def filter(
             typer.echo(f"  {reason}: {count}")
 
 
-def _run_dbt_build_for_fct_article_score(run_date: datetime.date) -> None:
-    """`dbt build --select +fct_article_score --vars '{"run_date": ...}'` cho đúng
-    partition_date vừa chấm (D1, PROGRESS.md mục 9). `+fct_article_score` kéo theo TOÀN BỘ
-    node thượng nguồn thật sự cần (staging, snapshot dim_source, intermediate) — không liệt
-    kê tay từng model.
-
-    Chỉ gọi CLI dbt qua subprocess — KHÔNG tính lại composite score trong Python (P5), y hệt
-    cách `dagster_project/assets/dbt_assets.py` gọi `dbt.cli(["build", ...])`. Raise
-    `typer.Exit` rõ ràng nếu dbt build lỗi — đây là lỗi hạ tầng, không phải lỗi một bản ghi
-    (khác bảng §10.5), nên KHÔNG được nuốt lỗi rồi coi như đã tóm tắt xong.
-    """
+def _run_dbt_build(
+    select: list[str], run_date: datetime.date, *, error_label: str
+) -> None:
+    """`dbt build --select <select> --vars '{"run_date": ...}'` — chỉ gọi CLI dbt qua
+    subprocess, KHÔNG tính lại business logic trong Python (P5), y hệt cách
+    `dagster_project/assets/dbt_assets.py` gọi `dbt.cli(["build", ...])`. Raise `typer.Exit`
+    rõ ràng nếu dbt build lỗi — lỗi hạ tầng, không phải lỗi một bản ghi (khác bảng §10.5),
+    KHÔNG được nuốt lỗi rồi coi như đã xong."""
     vars_json = json.dumps({"run_date": run_date.isoformat()})
     try:
         subprocess.run(
@@ -307,7 +305,7 @@ def _run_dbt_build_for_fct_article_score(run_date: datetime.date) -> None:
                 "dbt",
                 "build",
                 "--select",
-                "+fct_article_score",
+                *select,
                 "--vars",
                 vars_json,
                 "--project-dir",
@@ -318,8 +316,99 @@ def _run_dbt_build_for_fct_article_score(run_date: datetime.date) -> None:
             check=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        typer.echo(f"dbt build fct_article_score thất bại: {exc}", err=True)
+        typer.echo(f"dbt build {error_label} thất bại: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+
+
+def _run_dbt_build_for_fct_article_score(run_date: datetime.date) -> None:
+    """`+fct_article_score` (D1, PROGRESS.md mục 9) kéo theo TOÀN BỘ node thượng nguồn thật
+    sự cần (staging, snapshot dim_source, intermediate) — không liệt kê tay từng model."""
+    _run_dbt_build(["+fct_article_score"], run_date, error_label="fct_article_score")
+
+
+def _run_dbt_build_for_marts(run_date: datetime.date) -> None:
+    """`mart_daily_digest` + `mart_pipeline_health` — bước dbt build TƯỜNG MINH riêng biệt
+    với bước ẩn bên trong `score`/`_score_and_summarize` (chỉ build `+fct_article_score`).
+    Lệnh `pipeline` cần thêm bước này để `publish` đọc được digest mới nhất (task 1.8/1.9,
+    nhiệm vụ 4: "... → dbt build → publish" là 2 mắt xích tách biệt trong chuỗi)."""
+    _run_dbt_build(
+        ["mart_daily_digest", "mart_pipeline_health"], run_date, error_label="marts"
+    )
+
+
+def _build_provider(
+    provider_name: str, *, default_batch_size: int
+) -> tuple[LLMProvider, ModelPricing, int]:
+    """Chọn provider theo `--provider` (mock|deepseek) — dùng chung cho lệnh `score` và
+    `pipeline`, tránh viết lặp logic chọn provider ở 2 nơi."""
+    if provider_name == "mock":
+        return MockProvider(), ZERO_PRICING, default_batch_size
+    if provider_name == "deepseek":
+        api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not api_key:
+            typer.echo("Thiếu DEEPSEEK_API_KEY trong .env — không tự bịa.", err=True)
+            raise typer.Exit(code=1)
+        try:
+            deepseek_provider = DeepSeekProvider.from_config(
+                api_key=api_key, tier="fast"
+            )
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+        return (
+            deepseek_provider,
+            deepseek_provider.pricing,
+            deepseek_max_per_run() or default_batch_size,
+        )
+    typer.echo(
+        f"Provider không hỗ trợ: '{provider_name}' (chỉ 'mock' hoặc 'deepseek').",
+        err=True,
+    )
+    raise typer.Exit(code=1)
+
+
+def _score_and_summarize(
+    connection: sa.Connection,
+    *,
+    partition_date: datetime.date,
+    provider_name: str,
+    now: datetime.datetime,
+) -> RunnerResult:
+    """Chấm điểm + (nếu có bài mới, chưa vượt ngân sách) build `fct_article_score` rồi tóm
+    tắt top-K — logic dùng chung cho lệnh `score` và `pipeline` (trước đây chỉ nằm trong
+    `score`, tách ra ở task 1.8/1.9 để `pipeline` không phải chép lại)."""
+    score_cfg = load_config_dir().get("app", {}).get("score", {})
+    daily_budget_usd = Decimal(str(score_cfg.get("daily_budget_usd", "1.00")))
+    top_k_summaries = int(score_cfg.get("top_k_summaries", 15))
+    default_batch_size = int(score_cfg.get("default_batch_size", 10))
+
+    provider, pricing, batch_size = _build_provider(
+        provider_name, default_batch_size=default_batch_size
+    )
+
+    result = run_score_partition(
+        connection,
+        partition_date=partition_date,
+        provider=provider,
+        pricing=pricing,
+        daily_budget_usd=daily_budget_usd,
+        batch_size=batch_size,
+        now=now,
+    )
+
+    if result.scored > 0 and not result.budget_stopped:
+        _run_dbt_build_for_fct_article_score(partition_date)
+        run_summarize_top_k_partition(
+            connection,
+            partition_date=partition_date,
+            provider=provider,
+            pricing=pricing,
+            daily_budget_usd=daily_budget_usd,
+            top_k_summaries=top_k_summaries,
+            now=now,
+            result=result,
+        )
+    return result
 
 
 @app.command()
@@ -349,65 +438,16 @@ def score(
         partition_date = datetime.datetime.now(tz=VN_TZ).date()
     now = datetime.datetime.now(tz=VN_TZ)
 
-    score_cfg = load_config_dir().get("app", {}).get("score", {})
-    daily_budget_usd = Decimal(str(score_cfg.get("daily_budget_usd", "1.00")))
-    top_k_summaries = int(score_cfg.get("top_k_summaries", 15))
-    default_batch_size = int(score_cfg.get("default_batch_size", 10))
-
-    provider: LLMProvider
-    pricing: ModelPricing
-    if provider_name == "mock":
-        provider = MockProvider()
-        pricing = ZERO_PRICING
-        batch_size = default_batch_size
-    elif provider_name == "deepseek":
-        api_key = os.environ.get("DEEPSEEK_API_KEY")
-        if not api_key:
-            typer.echo("Thiếu DEEPSEEK_API_KEY trong .env — không tự bịa.", err=True)
-            raise typer.Exit(code=1)
-        try:
-            deepseek_provider = DeepSeekProvider.from_config(
-                api_key=api_key, tier="fast"
-            )
-        except ValueError as exc:
-            typer.echo(str(exc), err=True)
-            raise typer.Exit(code=1) from exc
-        provider = deepseek_provider
-        pricing = deepseek_provider.pricing
-        batch_size = deepseek_max_per_run() or default_batch_size
-    else:
-        typer.echo(
-            f"Provider không hỗ trợ: '{provider_name}' (chỉ 'mock' hoặc 'deepseek').",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-
     database_url = get_database_url()
     engine = sa.create_engine(database_url, future=True)
     try:
         with engine.connect() as connection:
-            result = run_score_partition(
+            result = _score_and_summarize(
                 connection,
                 partition_date=partition_date,
-                provider=provider,
-                pricing=pricing,
-                daily_budget_usd=daily_budget_usd,
-                batch_size=batch_size,
+                provider_name=provider_name,
                 now=now,
             )
-
-            if result.scored > 0 and not result.budget_stopped:
-                _run_dbt_build_for_fct_article_score(partition_date)
-                run_summarize_top_k_partition(
-                    connection,
-                    partition_date=partition_date,
-                    provider=provider,
-                    pricing=pricing,
-                    daily_budget_usd=daily_budget_usd,
-                    top_k_summaries=top_k_summaries,
-                    now=now,
-                    result=result,
-                )
     finally:
         engine.dispose()
 
@@ -504,9 +544,156 @@ def publish(
 
 
 @app.command()
-def pipeline() -> None:
-    """Run full pipeline: ingest -> filter -> score -> publish."""
-    typer.echo("Running full pipeline (placeholder)")
+def pipeline(
+    date: str | None = typer.Option(
+        None,
+        "--date",
+        help="Ngày chạy (YYYY-MM-DD), mặc định hôm nay theo giờ Asia/Ho_Chi_Minh",
+    ),
+    provider_name: str = typer.Option("mock", "--provider", help="mock hoặc deepseek"),
+) -> None:
+    """Chạy TUẦN TỰ ingest → normalize → filter → score → dbt build → publish cho một
+    `--date` (task 1.8/1.9). **Đường chạy DỰ PHÒNG khi Dagster không dùng được — KHÔNG thay
+    thế Dagster** (lịch chính vẫn là Dagster schedule + 4 sensor, task 0.12/1.6): lệnh này
+    gọi lại ĐÚNG các hàm mà `ingest`/`normalize`/`filter`/`score`/`publish` đã dùng, không
+    viết lại logic nghiệp vụ nào ở đây (P5) — chỉ khác chỗ chạy hết một lượt, một tiến trình,
+    một `--date` duy nhất thay vì gõ 5 lệnh tay.
+
+    Dừng NGAY ở bước đầu tiên lỗi (không nuốt lỗi rồi chạy tiếp bước sau trên dữ liệu chưa
+    sẵn sàng) — mỗi bước in rõ kết quả trước khi sang bước kế, giống hệt log của từng lệnh
+    CLI gốc.
+    """
+    if date:
+        run_date = datetime.date.fromisoformat(date)
+    else:
+        run_date = datetime.datetime.now(tz=VN_TZ).date()
+    now = datetime.datetime.now(tz=VN_TZ)
+
+    typer.echo(f"=== pipeline ngày {run_date} (provider={provider_name}) ===")
+
+    # 1. ingest
+    user_agent, timeout, max_concurrent = _load_ingest_settings()
+    sources = load_source_configs(only_enabled=True)
+    if not sources:
+        typer.echo("Không có nguồn nào enabled trong config/sources.yaml.", err=True)
+        raise typer.Exit(code=1)
+
+    database_url = get_database_url()
+    engine = sa.create_engine(database_url, future=True)
+    try:
+        with engine.connect() as connection:
+            typer.echo("[1/6] ingest...")
+            ingest_result = asyncio.run(
+                run_rss_ingest(
+                    connection,
+                    sources,
+                    user_agent=user_agent,
+                    ingest_date=run_date,
+                    max_concurrent=max_concurrent,
+                    timeout=timeout,
+                )
+            )
+            typer.echo(
+                f"      entries_fetched={ingest_result.total_entries_fetched} "
+                f"rows_inserted={ingest_result.rows_inserted} "
+                f"sources_ok={ingest_result.sources_ok} "
+                f"sources_failed={len(ingest_result.failed_sources)}"
+            )
+
+            # 2. normalize
+            max_article_age_days = int(
+                load_config_dir()
+                .get("app", {})
+                .get("normalize", {})
+                .get("max_article_age_days", 7)
+            )
+            typer.echo("[2/6] normalize...")
+            normalize_result = normalize_partition(
+                connection,
+                ingest_date=run_date,
+                max_article_age_days=max_article_age_days,
+                now=now,
+            )
+            typer.echo(
+                f"      read={normalize_result.read} inserted={normalize_result.inserted} "
+                f"updated={normalize_result.updated}"
+            )
+
+            # 3. filter
+            cfg = load_config_dir()
+            filter_cfg = cfg.get("app", {}).get("filter", {})
+            blocklist = cfg.get("keywords", {}).get("blocklist", [])
+            if not blocklist:
+                typer.echo(
+                    "Thiếu config keywords.yaml: blocklist — không tự bịa danh sách.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+            rules = FilterRules(
+                max_article_age_days=max_article_age_days,
+                min_snippet_chars=int(filter_cfg.get("min_snippet_chars", 80)),
+                blocklist_keywords=tuple(blocklist),
+                max_articles_per_day=int(filter_cfg.get("max_articles_per_day", 200)),
+                now=now,
+            )
+            typer.echo("[3/6] filter...")
+            filter_result = run_filter_partition(
+                connection, filter_date=run_date, rules=rules
+            )
+            typer.echo(
+                f"      read={filter_result.read} eligible={filter_result.eligible} "
+                f"excluded={filter_result.excluded}"
+            )
+
+            # 4. score (+ dbt build fct_article_score + summarize top-K bên trong)
+            typer.echo("[4/6] score...")
+            score_result = _score_and_summarize(
+                connection,
+                partition_date=run_date,
+                provider_name=provider_name,
+                now=now,
+            )
+            typer.echo(
+                f"      scored={score_result.scored} quarantined={score_result.quarantined} "
+                f"summarized={score_result.summarized} chi_phí={score_result.total_cost_usd} USD"
+            )
+            if score_result.provider_unavailable:
+                typer.echo(
+                    "Provider không dùng được giữa chừng — dừng pipeline.", err=True
+                )
+                raise typer.Exit(code=1)
+
+            # 5. dbt build (marts còn lại publish cần — fct_article_score đã build ở bước 4)
+            typer.echo("[5/6] dbt build (marts)...")
+            _run_dbt_build_for_marts(run_date)
+
+            # 6. publish
+            publish_cfg = cfg.get("app", {}).get("publish", {})
+            repo_url = publish_cfg.get("repo_url")
+            if not repo_url:
+                typer.echo(
+                    "Thiếu config app.yaml: publish.repo_url — không tự bịa link repo.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+            docs_site_dir = Path(publish_cfg.get("docs_site_dir", "docs-site"))
+            templates_dir = Path(publish_cfg.get("templates_dir", "templates"))
+            typer.echo("[6/6] publish...")
+            publish_result = run_publish(
+                connection,
+                generated_for_date=run_date,
+                docs_site_dir=docs_site_dir,
+                templates_dir=templates_dir,
+                repo_url=repo_url,
+                now=now,
+            )
+            typer.echo(
+                f"      {publish_result.article_count} bài -> {publish_result.index_html_path}"
+            )
+    finally:
+        engine.dispose()
+
+    typer.echo(f"=== pipeline ngày {run_date} XONG ===")
 
 
 @app.command()
