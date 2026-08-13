@@ -1,17 +1,24 @@
 # CI (task 1.9, PRODUCTION_PLAN §17.1) — chạy trên mọi PR vào `main`.
 #
-# 9 bước theo ĐÚNG bảng §17.1 (thứ tự chạy dưới đây ưu tiên phụ thuộc thật: alembic phải
-# migrate xong trước sqlfluff/pytest integration/dbt vì các bước đó cần schema tồn tại —
-# bảng §17.1 liệt kê CÁC KIỂM TRA bắt buộc, không phải thứ tự chạy tuần tự bắt buộc):
+# 9 bước theo ĐÚNG bảng §17.1 (thứ tự CHẠY dưới đây ưu tiên phụ thuộc thật — bảng §17.1
+# liệt kê CÁC KIỂM TRA bắt buộc, không phải thứ tự chạy tuần tự bắt buộc). 2 phụ thuộc thật
+# đã tự bắt được (không phải suy đoán, xem log CI thật của PR #1):
+#   - alembic phải migrate xong trước sqlfluff/pytest integration/dbt vì các bước đó cần
+#     schema tồn tại
+#   - dbt parse/compile phải chạy xong TRƯỚC pytest tests/unit: dagster_project/assets/
+#     dbt_assets.py đọc dbt_project/target/manifest.json ngay lúc import module (decorator-
+#     time), nên bất kỳ test unit nào import dagster_project.definitions (đúng nghĩa "unit",
+#     không đụng Postgres) đều fail lúc COLLECT nếu manifest chưa sinh — máy dev không lộ ra
+#     vì luôn có target/ cũ còn sót, CI checkout sạch mới lộ (xem comment tại step tương ứng)
 #   1. setup Python 3.12 + uv
 #   2. ruff check + ruff format --check
 #   3. mypy src/
 #   4. alembic upgrade head (DB tạm — service container Postgres mới tinh mỗi lần chạy CI)
-#   5. sqlfluff lint dbt_project/
-#   6. pytest tests/unit
-#   7. pytest tests/integration (provider=mock, Postgres service container — mạng RSS/GitHub
+#   5. dbt parse + dbt compile
+#   6. sqlfluff lint dbt_project/
+#   7. pytest tests/unit
+#   8. pytest tests/integration (provider=mock, Postgres service container — mạng RSS/GitHub
 #      giả bằng httpx.MockTransport, KHÔNG gọi mạng/LLM thật)
-#   8. dbt parse + dbt compile
 #   9. dagster definitions validate (tên lệnh xác nhận đúng trên dagster 1.13.17 đang cài —
 #      `uv run dagster definitions --help`; superseded bởi `dg check defs` nhưng vẫn hoạt
 #      động, dùng lệnh cũ vì `dg` là CLI riêng chưa có trong dependency của repo)
@@ -97,6 +104,19 @@ jobs:
       - name: alembic upgrade head (DB tạm)
         run: uv run alembic upgrade head
 
+      # PHẢI chạy trước pytest tests/unit: dagster_project/assets/dbt_assets.py truyền
+      # `manifest=dbt_project.manifest_path` (= dbt_project/target/manifest.json) ngay lúc
+      # module được import (decorator-time, không phải lúc materialize) — bất kỳ test nào
+      # `import dagster_project.definitions` (vd. tests/unit/test_dagster_definitions.py,
+      # đúng nghĩa "unit" vì không đụng Postgres) đều fail lúc COLLECT nếu manifest chưa
+      # tồn tại. Máy dev không lộ ra vì luôn có `target/` cũ còn sót từ những lần chạy `dbt
+      # build` thủ công trước đó — CI checkout sạch mới lộ ra thứ tự sai này (bắt được thật
+      # ở lần chạy CI đầu tiên trên PR #1, không phải suy đoán).
+      - name: dbt parse + dbt compile
+        run: |
+          uv run dbt parse --project-dir dbt_project --profiles-dir dbt_project
+          uv run dbt compile --project-dir dbt_project --profiles-dir dbt_project
+
       - name: sqlfluff lint dbt_project/
         run: uv run sqlfluff lint dbt_project/
 
@@ -105,11 +125,6 @@ jobs:
 
       - name: pytest tests/integration (provider=mock, Postgres service container)
         run: uv run pytest tests/integration -v
-
-      - name: dbt parse + dbt compile
-        run: |
-          uv run dbt parse --project-dir dbt_project --profiles-dir dbt_project
-          uv run dbt compile --project-dir dbt_project --profiles-dir dbt_project
 
       - name: dagster definitions validate
         run: uv run dagster definitions validate -f dagster_project/definitions.py
