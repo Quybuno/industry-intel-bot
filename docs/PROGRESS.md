@@ -1898,3 +1898,32 @@ chứng thật). **1 hạng mục KHÔNG verify được từ phiên làm việc
 hành → daemon tự khởi động lại → lịch 05:00 chạy không cần can thiệp"** — không có quyền
 truy cập máy production thật (SSH thất bại, user tự deploy). Đã ghi rõ, không giấu, trong cả
 `docs/DEPLOYMENT.md` (đầu file) lẫn ở đây — user cần tự làm 1 lần sau khi deploy xong.
+
+### 18.7 Quyết định cuối về máy production — đổi từ "máy remote" sang "chính máy dev này"
+
+Sau khi viết xong toàn bộ mục 18.1–18.6 (lúc đó vẫn giả định máy remote), user quyết định
+**KHÔNG dùng máy remote nữa** (SSH chưa từng kết nối được, xem đầu mục 18) — chạy production
+thẳng trên máy dev này. Cập nhật:
+
+- `docs/DEPLOYMENT.md` sửa lại toàn bộ phần "copy sang máy remote"/"bootstrap trên máy mới"
+  thành thực tế: máy này đã bootstrap sẵn mọi thứ từ chính lúc phát triển task 1.10 (schema,
+  worktree `gh-pages`, image build).
+- **`LLM_PROVIDER`: `mock` → `deepseek`** trong `.env` (không tracked, không commit) — hỏi
+  rõ user trước khi đổi (quyết định có chi phí thật) — **user xác nhận đổi ngay**.
+- **Test reboot thật: user chủ động từ chối** (sẽ ngắt phiên làm việc hiện tại) — chấp nhận
+  bằng chứng gián tiếp đã có (`docker restart` sống qua, cơ chế `restart: unless-stopped`
+  chuẩn của Docker) thay vì reboot toàn máy.
+- Thử tự đăng ký 2 Scheduled Task qua PowerShell — **bị chặn thật**
+  (`Register-ScheduledTask : Access is denied`, phiên PowerShell hiện tại không chạy quyền
+  Administrator, agent không tự nâng quyền được) — ghi rõ trong `DEPLOYMENT.md`, user cần tự
+  chạy 2 đoạn lệnh đó trong PowerShell (Run as Administrator).
+- **Khởi động daemon production THẬT** (không phải lần test nữa): `docker compose up -d
+  postgres dagster-daemon dagster-webserver` → xác nhận `LLM_PROVIDER=deepseek` bên trong
+  container thật (`docker compose exec dagster-daemon printenv LLM_PROVIDER`), GraphQL xác
+  nhận lại cả 3 schedule `RUNNING` trên chính instance production này.
+
+**Trạng thái cuối cùng lúc kết thúc phiên làm việc:** `dagster-daemon`+`dagster-webserver`
+đang chạy THẬT trên máy này, provider `deepseek`, 3 lịch `RUNNING` — lịch 05:00/12:00/18:00
+kế tiếp sẽ tự chạy, tốn chi phí LLM thật. Việc CÒN LẠI ngoài phạm vi có thể tự làm từ phiên
+này: user tự đăng ký 2 Scheduled Task (quyền Admin) + tự cân nhắc có test reboot thật hay
+không (đã từ chối lúc này, có thể làm sau).
