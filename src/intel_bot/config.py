@@ -35,3 +35,6 @@ def load_config_dir(path: str = "config") -> dict[str, dict[str, Any]]:
 
 
 settings = Settings()
+
+# CI DRILL (task 1.9) — lỗi type cố ý, sẽ bị revert ngay sau khi xác nhận CI đỏ đúng bước mypy.
+_ci_drill_bad_type: int = "not an int"
