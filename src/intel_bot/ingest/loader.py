@@ -94,8 +94,19 @@ def upsert_silver_article(
 ) -> bool:
     """Dedup cấp 1 theo canonical_url: INSERT ... ON CONFLICT (canonical_url) DO UPDATE.
 
-    `first_seen_at` giữ giá trị SỚM NHẤT (LEAST); các trường khác cập nhật theo bản mới
-    (PRODUCTION_PLAN §8.4, task 0.5 mục 3). Trả về True nếu là dòng MỚI, False nếu UPDATE.
+    `first_seen_at` VÀ `first_seen_date` giữ giá trị SỚM NHẤT (LEAST trên chính cột của nó);
+    các trường khác cập nhật theo bản mới (PRODUCTION_PLAN §8.4, task 0.5 mục 3). Trả về
+    True nếu là dòng MỚI, False nếu UPDATE.
+
+    **Bug thật đã sửa (task 1.8/1.9, phát hiện qua test backfill):** trước đây
+    `first_seen_date` bị tính lại bằng `LEAST(first_seen_at, EXCLUDED.first_seen_at)::date`
+    — tức suy ra từ THỜI ĐIỂM FETCH THẬT thay vì so trực tiếp cột `first_seen_date` (nhãn
+    partition, độc lập với thời điểm chạy thật — xem `ingest_date` ở `normalize_partition`).
+    Vô hại trong vận hành hằng ngày bình thường (ingest_date luôn trùng ngày thật), nhưng
+    SAI khi backfill một partition CŨ: bài đã tồn tại từ trước, re-normalize dưới
+    `ingest_date` cũ sẽ bị `first_seen_date` "nhảy" về ngày chạy THẬT thay vì giữ đúng nhãn
+    partition — phá tính lũy đẳng (P1) đúng lúc backfill, không lộ ra ở vận hành thường
+    ngày. Sửa: so trực tiếp `first_seen_date` cũ/mới, không suy ra từ `first_seen_at`.
     """
     result = connection.execute(
         sa.text(
@@ -117,7 +128,7 @@ def upsert_silver_article(
                 snippet = EXCLUDED.snippet,
                 published_at = EXCLUDED.published_at,
                 first_seen_at = LEAST(silver.articles.first_seen_at, EXCLUDED.first_seen_at),
-                first_seen_date = LEAST(silver.articles.first_seen_at, EXCLUDED.first_seen_at)::date,
+                first_seen_date = LEAST(silver.articles.first_seen_date, EXCLUDED.first_seen_date),
                 status = EXCLUDED.status,
                 exclusion_reason = EXCLUDED.exclusion_reason,
                 published_at_imputed = EXCLUDED.published_at_imputed

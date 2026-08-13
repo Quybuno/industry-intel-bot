@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Fixture Feed 2 — Industry Intel Bot Tests</title>
+    <link>https://fixture.test/</link>
+    <description>Fixture RSS thứ 2, URL KHÁC hẳn sample_valid.xml — dùng cho
+    tests/integration/test_backfill.py để partition D-1 có nội dung riêng, không trùng
+    canonical_url với partition D (nếu trùng, LEAST(first_seen_date) sẽ đúng đắn gộp về
+    ngày sớm hơn — đó là hành vi dedup ĐÚNG cho CÙNG một bài, không phải kịch bản "2 ngày có
+    2 bài khác nhau" mà test backfill cần).</description>
+
+    <item>
+      <title>Bài test D-1 số 1: Manufacturing 4.0</title>
+      <link>https://fixture.test/backfill-day-minus-1/bai-1</link>
+      <guid>https://fixture.test/backfill-day-minus-1/bai-1</guid>
+      <description>Snippet tóm tắt cho bài D-1 số 1.</description>
+      <pubDate>Mon, 09 Aug 2026 01:00:00 GMT</pubDate>
+    </item>
+
+    <item>
+      <title>Bài test D-1 số 2: Cảm biến công nghiệp</title>
+      <link>https://fixture.test/backfill-day-minus-1/bai-2</link>
+      <guid>https://fixture.test/backfill-day-minus-1/bai-2</guid>
+      <description>Snippet tóm tắt cho bài D-1 số 2.</description>
+      <pubDate>Mon, 09 Aug 2026 02:00:00 GMT</pubDate>
+    </item>
+
+    <item>
+      <title>Bài test D-1 số 3: Chuỗi cung ứng thông minh</title>
+      <link>https://fixture.test/backfill-day-minus-1/bai-3</link>
+      <guid>https://fixture.test/backfill-day-minus-1/bai-3</guid>
+      <description>Snippet tóm tắt cho bài D-1 số 3.</description>
+      <pubDate>Mon, 09 Aug 2026 03:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

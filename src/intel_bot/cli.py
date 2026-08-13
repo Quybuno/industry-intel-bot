@@ -297,8 +297,14 @@ def _run_dbt_build(
     subprocess, KHÔNG tính lại business logic trong Python (P5), y hệt cách
     `dagster_project/assets/dbt_assets.py` gọi `dbt.cli(["build", ...])`. Raise `typer.Exit`
     rõ ràng nếu dbt build lỗi — lỗi hạ tầng, không phải lỗi một bản ghi (khác bảng §10.5),
-    KHÔNG được nuốt lỗi rồi coi như đã xong."""
+    KHÔNG được nuốt lỗi rồi coi như đã xong.
+
+    Ép UTF-8 tường minh cho subprocess (`PYTHONUTF8`/`PYTHONIOENCODING`) — dbt tự đọc file
+    `.sql` có comment tiếng Việt lúc build manifest, vỡ `UnicodeDecodeError` trên Console
+    Windows cp1252 nếu KHÔNG ép (AGENTS.md mục 8) và tiến trình cha (vd. CI) lỡ quên set
+    biến này trước khi gọi `intel-bot pipeline`/`score` — không dựa vào bên gọi nhớ set."""
     vars_json = json.dumps({"run_date": run_date.isoformat()})
+    env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
     try:
         subprocess.run(
             [
@@ -314,6 +320,7 @@ def _run_dbt_build(
                 str(DBT_PROJECT_DIR),
             ],
             check=True,
+            env=env,
         )
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         typer.echo(f"dbt build {error_label} thất bại: {exc}", err=True)
