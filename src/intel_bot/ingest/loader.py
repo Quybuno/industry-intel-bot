@@ -120,6 +120,18 @@ def upsert_silver_article(
                 :published_at, :first_seen_at, :first_seen_date, :status, :exclusion_reason,
                 :published_at_imputed
             )
+            ON CONFLICT (canonical_url) DO UPDATE SET
+                raw_url = EXCLUDED.raw_url,
+                content_hash = EXCLUDED.content_hash,
+                source_id = EXCLUDED.source_id,
+                title = EXCLUDED.title,
+                snippet = EXCLUDED.snippet,
+                published_at = EXCLUDED.published_at,
+                first_seen_at = LEAST(silver.articles.first_seen_at, EXCLUDED.first_seen_at),
+                first_seen_date = LEAST(silver.articles.first_seen_date, EXCLUDED.first_seen_date),
+                status = EXCLUDED.status,
+                exclusion_reason = EXCLUDED.exclusion_reason,
+                published_at_imputed = EXCLUDED.published_at_imputed
             RETURNING (xmax = 0) AS was_insert
             """
         ).bindparams(sa.bindparam("article_id", type_=postgresql.UUID)),
