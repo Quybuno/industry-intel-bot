@@ -1,0 +1,131 @@
+# CI (task 1.9, PRODUCTION_PLAN §17.1) — chạy trên mọi PR vào `main`.
+#
+# 9 bước theo ĐÚNG bảng §17.1 (thứ tự chạy dưới đây ưu tiên phụ thuộc thật: alembic phải
+# migrate xong trước sqlfluff/pytest integration/dbt vì các bước đó cần schema tồn tại —
+# bảng §17.1 liệt kê CÁC KIỂM TRA bắt buộc, không phải thứ tự chạy tuần tự bắt buộc):
+#   1. setup Python 3.12 + uv
+#   2. ruff check + ruff format --check
+#   3. mypy src/
+#   4. alembic upgrade head (DB tạm — service container Postgres mới tinh mỗi lần chạy CI)
+#   5. sqlfluff lint dbt_project/
+#   6. pytest tests/unit
+#   7. pytest tests/integration (provider=mock, Postgres service container — mạng RSS/GitHub
+#      giả bằng httpx.MockTransport, KHÔNG gọi mạng/LLM thật)
+#   8. dbt parse + dbt compile
+#   9. dagster definitions validate (tên lệnh xác nhận đúng trên dagster 1.13.17 đang cài —
+#      `uv run dagster definitions --help`; superseded bởi `dg check defs` nhưng vẫn hoạt
+#      động, dùng lệnh cũ vì `dg` là CLI riêng chưa có trong dependency của repo)
+#
+# gitleaks (§23.2) chạy ở job riêng, độc lập với 9 bước trên — không phụ thuộc DB/Python env.
+#
+# Rào chắn cứng (đề bài task 1.8/1.9): KHÔNG gọi LLM thật (LLM_PROVIDER=mock, không set
+# DEEPSEEK_API_KEY), KHÔNG ping heartbeat thật (không set HEARTBEAT_URL), KHÔNG gửi alert
+# thật (không set TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID/SLACK_WEBHOOK_URL) — code hiện có (P4,
+# task 1.6) đã tự log warning và bỏ qua khi các biến này rỗng, verify thật ở task 1.6.
+# KHÔNG chạy `dbt build --full-refresh` trên DB thật ở đây — CI chỉ parse/compile dbt, việc
+# `dbt build` thật (mock provider) nằm trong pytest integration/test_backfill.py, chạy trên
+# service container tạm, không phải DB dev/production.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: intel
+          POSTGRES_PASSWORD: intel
+          POSTGRES_DB: intel_bot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U intel -d intel_bot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://intel:intel@localhost:5432/intel_bot
+      POSTGRES_USER: intel
+      POSTGRES_PASSWORD: intel
+      POSTGRES_DB: intel_bot
+      POSTGRES_PORT: "5432"
+      POSTGRES_HOST: localhost
+      LLM_PROVIDER: mock
+      # Ép UTF-8 tường minh cho MỌI step — dbt/sqlfluff tự đọc file .sql có comment tiếng
+      # Việt lúc build manifest, vỡ UnicodeDecodeError dưới decode mặc định không phải UTF-8
+      # nếu thiếu 2 biến này (gặp thật trên Windows dev, giữ luôn ở CI cho chắc — runner
+      # ubuntu-latest mặc định đã UTF-8 nhưng không dựa vào đó, tường minh vẫn hơn).
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12 + uv
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: ruff check + ruff format --check
+        run: |
+          uv run ruff check src/ dagster_project/ tests/ alembic/env.py
+          uv run ruff format --check src/ dagster_project/ tests/ alembic/env.py
+
+      - name: mypy src/
+        run: uv run mypy --strict src/
+
+      - name: alembic upgrade head (DB tạm)
+        run: uv run alembic upgrade head
+
+      - name: sqlfluff lint dbt_project/
+        run: uv run sqlfluff lint dbt_project/
+
+      - name: pytest tests/unit
+        run: uv run pytest tests/unit -v
+
+      - name: pytest tests/integration (provider=mock, Postgres service container)
+        run: uv run pytest tests/integration -v
+
+      - name: dbt parse + dbt compile
+        run: |
+          uv run dbt parse --project-dir dbt_project --profiles-dir dbt_project
+          uv run dbt compile --project-dir dbt_project --profiles-dir dbt_project
+
+      - name: dagster definitions validate
+        run: uv run dagster definitions validate -f dagster_project/definitions.py
+
+  gitleaks:
+    name: gitleaks (secret scan)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (full history — gitleaks quét cả lịch sử commit của PR)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
