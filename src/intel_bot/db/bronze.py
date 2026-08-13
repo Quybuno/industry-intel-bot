@@ -124,7 +124,9 @@ def upsert_source_health(
 def count_raw_articles(connection: sa.Connection, *, ingest_date: dt.date) -> int:
     """Đếm số dòng bronze.raw_articles của một ngày — tiện cho test idempotency."""
     count = connection.execute(
-        sa.text("SELECT COUNT(*) FROM bronze.raw_articles WHERE ingest_date = :ingest_date"),
+        sa.text(
+            "SELECT COUNT(*) FROM bronze.raw_articles WHERE ingest_date = :ingest_date"
+        ),
         {"ingest_date": ingest_date},
     ).scalar_one()
     return int(count)

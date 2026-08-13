@@ -37,7 +37,9 @@ publish --date YYYY-MM-DD
 doctor
 ```
 
-`pipeline`, `eval` vẫn là placeholder (`typer.echo("... (placeholder)")`).
+`eval` vẫn là placeholder. `pipeline --date YYYY-MM-DD [--provider mock|deepseek]` KHÔNG
+còn placeholder từ task 1.8/1.9 — chạy tuần tự ingest → normalize → filter → score → dbt
+build (marts) → publish, đường chạy dự phòng khi Dagster không dùng được (xem mục 17).
 
 Từ task 0.12, còn có đường chạy thứ hai qua Dagster (song song với CLI, không thay thế —
 CLI vẫn chạy độc lập được): `uv run dagster dev -f dagster_project/definitions.py` (UI),
@@ -1469,3 +1471,459 @@ nhận connection refused). `uv run pytest tests/` → **282/282 pass** không �
 
 **Task 1.6 chính thức HOÀN THÀNH — cả 6/6 DONE WHEN đã verify bằng dữ liệu/log thật, không
 còn mục nào "chờ".**
+
+## 17. Đã làm — 1.8 Test backfill + 1.9 CI (PRODUCTION_PLAN §17.1, §17.3, §20.1–20.4, §23.2,
+§23.3) — CODE + VERIFY LOCAL XONG, CHỜ GITHUB PAT cho phần còn lại
+
+Nhánh `feature/ci-backfill-pipeline`. Trước khi bắt đầu: commit hết việc tồn đọng của task
+1.2/1.4/1.5/1.6 lên `main` (4 commit, xem mục 13–16), rồi mới tạo nhánh này — theo đúng lựa
+chọn của user khi được hỏi.
+
+### 17.1 Chia `tests/` thành `tests/unit` và `tests/integration`
+
+Refactor cấu trúc thuần tuý qua `git mv` (Git giữ được rename detection) — KHÔNG sửa nội
+dung test, không xoá test nào. Phân loại bằng cách grep từng file tìm
+`db_connection`/`db_engine`/`DATABASE_URL`/`create_engine`: có dùng DB thật → `integration/`
+(8 file + `fixtures/`), không đụng DB → `unit/` (12 file). 2 sửa CƠ HỌC bắt buộc (không phải
+đổi test-logic): `TEMPLATES_DIR` trong `test_publish_html_renderer.py`/`test_publish_runner.py`
+thiếu 1 cấp `.parent` sau khi file dời sâu hơn 1 thư mục. Verify: 282/282 pass sau khi dời,
+`tests/unit` verify chạy được cả khi `env -u DATABASE_URL -u POSTGRES_*` (thật sự không phụ
+thuộc DB).
+
+### 17.2 CLI `pipeline` — từ placeholder thành lệnh thật
+
+Chạy tuần tự ingest (RSS-only, khớp quyết định cũ ở task 1.2 rằng CLI `ingest` không gộp
+GitHub) → normalize → filter → score → dbt build (marts) → publish cho một `--date`, dùng
+LẠI đúng các hàm mà từng lệnh CLI riêng lẻ đã gọi (không viết lại business logic, P5) —
+đường dự phòng khi Dagster không dùng được, KHÔNG thay thế Dagster (Dagster vẫn giữ lịch
+chạy hằng ngày + 4 sensor alert). Refactor `score` để dùng chung `_build_provider()`/
+`_score_and_summarize()` với `pipeline` thay vì copy-paste. Verify thật:
+`pipeline --date 2026-08-12 --provider mock` chạy hết 6 bước trên Postgres dev thật,
+`gold.mart_daily_digest` giữ nguyên 15 dòng, không rò placeholder mock vào gold.
+
+### 17.3 Test backfill tự động (`tests/integration/test_backfill.py`) — CHƯA từng tồn tại
+
+Chạy TOÀN BỘ đường ống thật (ingest mock qua `httpx.MockTransport` → normalize → filter →
+score mock → dbt build) trên Postgres THẬT, 2 partition riêng biệt hoàn toàn dữ liệu thật
+(2019-06-14/15). `now` CỐ ĐỊNH xuyên suốt 2 lần chạy CÙNG một partition — tách bạch đúng
+"đổi vì mất tính lũy đẳng" khỏi "đổi vì thiết kế" (§8.2 cold-start so tuổi bài với `now` THẬT
+— cạm bẫy đã gặp ở 0.12). 3 assertion đúng DONE WHEN: (1) materialize D, đếm số dòng THẬT ở
+mọi bảng bronze/silver/gold liên quan, sanity-check >0; (2) materialize LẠI D → count không
+đổi; (3) materialize D-1 → D không đổi, D-1 có dữ liệu riêng khác 0.
+
+**Bug thật phát hiện qua assertion (2):** `upsert_silver_article()` (`src/intel_bot/ingest/loader.py`)
+tính lại `first_seen_date` bằng `LEAST(first_seen_at, EXCLUDED.first_seen_at)::date` — suy
+từ THỜI ĐIỂM FETCH THẬT thay vì so trực tiếp cột `first_seen_date` (nhãn partition, độc lập
+thời gian thật). Vô hại vận hành hằng ngày (`ingest_date` luôn trùng ngày thật), nhưng SAI
+khi backfill: re-normalize partition CŨ khiến `first_seen_date` "nhảy" về ngày chạy THẬT —
+phá tính lũy đẳng (P1) đúng lúc backfill. Báo cho user qua `AskUserQuestion` (không tự sửa
+rồi coi như xong, đúng rào chắn "test đỏ là thông tin, không phải phiền phức") — user chọn
+sửa ngay: so trực tiếp 2 cột `first_seen_date` cũ/mới thay vì suy từ `first_seen_at`. Đã
+kiểm tra dữ liệu prod hiện có (95 dòng `first_seen_at::date != first_seen_date`, chủ yếu
+GitHub) — xác định đây là hành vi INSERT hợp lệ (nhãn partition khác ngày chạy thật lúc
+verify trước đó), KHÔNG phải hậu quả của bug này, KHÔNG tự sửa lùi vì thiếu audit trail.
+
+**Lỗi thiết kế test tự phát hiện (assertion 3), SAU khi sửa bug trên:** D và D-1 ban đầu
+dùng CHUNG 1 fixture RSS → cùng `canonical_url` → khi xử lý D-1, `LEAST(first_seen_date)`
+(đã sửa đúng) hợp lệ gán lại nhãn bài đó từ D về D-1 sớm hơn — ĐÚNG hành vi dedup cấp 1 cho
+CÙNG một bài xuất hiện 2 ngày, KHÔNG phải vi phạm isolation. Sửa bằng cách tạo fixture thứ 2
+nội dung khác hẳn (`sample_valid_2.xml`, `canonical_url` không trùng) cho D-1 — KHÔNG nới
+assertion. Sau sửa: PASS cho đúng lý do.
+
+Verify cuối: `uv run pytest tests/integration/test_backfill.py` PASS (37s), full suite
+**283/283 pass** (282 cũ + 1 mới), teardown dọn sạch (đếm lại = 0 ở cả 3 bảng
+bronze/silver/gold cho 2 ngày test). `ruff`/`ruff format`/`mypy --strict` sạch.
+
+Tiện thể mang luôn fix ép UTF-8 subprocess (`PYTHONUTF8`/`PYTHONIOENCODING`, phát hiện khi
+viết helper `_dbt_build` của test) ngược vào `cli.py::_run_dbt_build` — không dựa vào tiến
+trình cha nhớ set biến này trước khi gọi `pipeline`/`score`.
+
+### 17.4 `.github/workflows/ci.yml` — 9 bước theo bảng §17.1 + gitleaks (§23.2)
+
+Xác nhận tên lệnh `dagster definitions validate` đúng trên dagster 1.13.17 đang cài
+(`uv run dagster definitions --help`) — có cảnh báo superseded bởi `dg check defs` nhưng
+lệnh cũ vẫn chạy đúng, dùng lệnh cũ vì `dg` chưa phải dependency của repo.
+
+Thứ tự chạy trong workflow ưu tiên phụ thuộc thật (bảng §17.1 liệt kê CÁC KIỂM TRA bắt
+buộc, không phải thứ tự tuần tự bắt buộc) — `alembic upgrade head` chạy SỚM (ngay sau
+mypy), không phải cuối cùng, vì sqlfluff (templater dbt), pytest integration, và
+dbt parse/compile đều cần schema đã tồn tại trên service container Postgres mới tinh của
+CI. gitleaks chạy job riêng, độc lập Python/DB.
+
+Rào chắn cứng đã thoả bằng cấu trúc, không phải lời hứa: KHÔNG set `DEEPSEEK_API_KEY`/
+`HEARTBEAT_URL`/`TELEGRAM_*`/`SLACK_WEBHOOK_URL` trong `env:` của job → code P4 sẵn có (đã
+verify thật ở task 1.6) tự log warning và bỏ qua, không gọi mạng thật. KHÔNG có
+`dbt build --full-refresh` nào trong workflow — `dbt build` thật (mock) duy nhất nằm trong
+`test_backfill.py`, chạy trên service container tạm của CI, không phải DB thật.
+
+**Phạm vi lint (bước 2/3) cố ý giới hạn** `src/ dagster_project/ tests/ alembic/env.py` —
+code pipeline đang bảo trì — KHÔNG phải toàn repo: `ruff check .`/`ruff format --check .`
+trên toàn repo phát hiện lỗi ở `alembic/versions/*.py` (boilerplate tự sinh của alembic khi
+`revision --autogenerate`, kiểu `Optional`/`Sequence` từ template mặc định, chưa từng sửa
+tay sau khi sinh) và `spike/spike.py` (đã ghi rõ ở mục 10: "CODE SPIKE MỘT LẦN — KHÔNG THUỘC
+PIPELINE CHÍNH THỨC", giữ vì giá trị lịch sử, không bảo trì theo chuẩn code pipeline). Đây
+là quyết định về PHẠM VI kiểm tra, không phải nới RULESET — ruleset (`ruff`/`mypy --strict`)
+giữ nguyên, không sửa `pyproject.toml`/thêm `# type: ignore`. Tiện thể dọn 2 file format lệch
+từ trước (không liên quan việc đang làm, thuần line-wrap, không đổi hành vi):
+`alembic/env.py`, `src/intel_bot/db/bronze.py` — để bước 2 xanh ngay từ PR đầu tiên.
+
+**Dry-run cả 9 bước THẬT trên máy dev trước khi push** (Postgres thật, DB tạm riêng
+`ci_test_tmp` cho bước alembic để mô phỏng đúng "service container mới tinh"), thời gian đo
+được:
+
+| Bước | Lệnh | Thời gian |
+|---|---|---|
+| 2 | `ruff check` + `ruff format --check` (scope ở trên) | ~2-3s |
+| 3 | `mypy --strict src/` (28 file) | <5s |
+| 4 | `alembic upgrade head` (DB trống → 4 migration) | 0.94s |
+| 5 | `sqlfluff lint dbt_project/` | vài giây (đã trừ nhiễu 683 warning từ `target/` cũ, gitignored, sẽ không xuất hiện trên checkout sạch của CI) |
+| 6 | `pytest tests/unit` | 230 passed, 3.37s |
+| 7 | `pytest tests/integration` | 53 passed, 39.80s |
+| 8 | `dbt parse` + `dbt compile` | 6.5s + 5.1s |
+| 9 | `dagster definitions validate` | 4.57s |
+
+Tổng ước tính runner CI (không tính setup Python/uv + cold cache): dưới 2 phút.
+
+**gitleaks dry-run cục bộ** (docker chưa cài binary gitleaks native, dùng
+`docker run --rm zricethezav/gitleaks:latest git -v .`): quét 25 commit, 1.77MB, **no leaks
+found** — PR đầu tiên sẽ xanh ngay, không có secret nào lộ trong lịch sử hiện tại.
+
+### 17.5 PAT + PR thật + 4 lỗi CI thật tìm được — chỉ lộ ra trên checkout sạch, không lộ ở
+máy dev (đã tích luỹ state qua cả phiên làm việc)
+
+User điền PAT (fine-grained, `repo` industry-intel-bot) vào `.env` biến `GITHUB_TOKEN` (biến
+đã có sẵn tên, trước đó dành cho GitHub Search fetcher task 1.2, giờ dùng chung). 2 vòng sửa
+quyền PAT trước khi push được — ghi lại vì dễ lặp lại nhầm lần sau:
+1. Thiếu quyền → `403 Permission denied` khi push dù `/repos/.../permissions` báo
+   `admin:true, push:true` — vì fine-grained PAT có mô hình quyền RIÊNG cho từng token, độc
+   lập với quyền collaborator của tài khoản. Cần bật tường minh Contents/Pull requests/
+   Administration ở trang sửa token.
+2. Vẫn bị chặn → `refusing to allow a Personal Access Token to create or update workflow
+   .github/workflows/ci.yml without workflow scope` — vì nhánh có sửa file trong
+   `.github/workflows/`, quyền **Workflows** (khác **Actions** — dễ nhầm, Actions chỉ quản
+   lý workflow *runs*) mới cho phép việc này.
+
+`git push` qua PAT nhúng thẳng vào URL remote bị permission classifier của Claude Code auto
+mode chặn (hành động outward-facing, khó đảo ngược) — user tự chạy `git push` bằng tay lần
+đầu; các lần push sau (sau khi user đã xác nhận) chạy được qua Bash bình thường. Mở PR +
+theo dõi CI + tải log lỗi làm qua REST API thẳng (`curl` + `Authorization: Bearer`), không
+cần cài `gh` CLI — đủ dùng.
+
+**PR #1** mở vào `main`: https://github.com/Quybuno/industry-intel-bot/pull/1 (5 commit ban
+đầu, sau đó thêm 3 commit sửa lỗi CI thật, tổng 8 commit).
+
+**Lần push đầu tiên CI đỏ ngay — và 3 vòng sửa tiếp theo cũng đỏ, mỗi vòng một lỗi THẬT khác
+nhau, chỉ lộ ra trên GitHub Actions checkout sạch, KHÔNG lộ trên máy dev vì máy dev đã tích
+luỹ `dbt_project/target/` + toàn bộ bảng/view gold từ rất nhiều lần `dbt build` thủ công
+xuyên suốt phiên làm việc.** Đây đúng là giá trị của CI mà đề bài đặt ra ("PR sau này phá vỡ
+tính lũy đẳng — không có gì ngăn" áp dụng y hệt cho "môi trường sạch phơi ra thứ máy dev che
+giấu"). Mỗi lỗi đều: tái hiện được cục bộ trên DB tạm mới migrate (drop/create + alembic
+upgrade head, không phải suy đoán từ log), sửa, xác nhận sửa đúng, rồi mới push:
+
+1. **`pytest tests/unit` fail lúc COLLECT** — `tests/unit/test_dagster_definitions.py` import
+   `dagster_project.definitions`, mà `dagster_project/assets/dbt_assets.py` đọc
+   `dbt_project/target/manifest.json` ngay lúc import module (decorator-time, không phải lúc
+   materialize). Workflow ban đầu chạy `dbt parse + compile` SAU `pytest tests/unit` — sai
+   thứ tự. Sửa: đổi thứ tự, `dbt parse + compile` chạy sớm hơn.
+2. **`dbt compile` tự vỡ** — `models/intermediate/int_articles_deduped.sql` gọi `run_query()`
+   ngay trong thân model (mục đích: log số nhóm content_hash trùng), chạy THẬT lúc compile
+   (Jinja `{% if execute %}`), SELECT từ `gold.stg_articles` — một VIEW dbt tự tạo, alembic
+   không biết tới. DB tạm mới migrate chưa có view này. Sửa: thêm `dbt seed` +
+   `dbt run --select staging` trước `dbt compile`.
+3. **`pytest tests/integration` fail hàng loạt** — nhiều test SELECT/INSERT trực tiếp vào
+   `gold.fct_article_score`/`mart_daily_digest`/`mart_pipeline_health` qua SQL thô (không qua
+   dbt ref), những bảng này CHỈ tồn tại sau khi chạy `dbt build` thật. Sửa: nâng bước seeding
+   từ `dbt run --select staging` lên `dbt build` đầy đủ (`--exclude assert_digest_not_empty`
+   — test nghiệp vụ §13.2 đòi >=5 dòng, đúng cho production, sai bối cảnh cho một lần build
+   0-dòng chỉ để tạo schema). `tests/integration/test_backfill.py` tự nó cũng dính đúng lỗi
+   này ở bước `_dbt_build` mart riêng của nó (partition test chỉ vài bài mock, không bao giờ
+   đạt ngưỡng 5 dòng) — thêm `--exclude` tương tự vào helper `_dbt_build` của test.
+4. **`test_alerting.py::test_check_digest_empty_returns_none_when_digest_has_rows` fail** —
+   test PHỤ THUỘC dữ liệu thật có sẵn của repo (docstring cũ ghi thẳng: "dữ liệu 2026-08 đã
+   có từ các task trước") thay vì tự tạo fixture — đúng trên máy dev (luôn có data thật),
+   SAI trên DB CI trống. Đây là lỗ hổng cô lập test có SẴN từ task 1.6 (không phải lỗi của
+   1.8/1.9), nên KHÔNG tự sửa — báo cho user qua `AskUserQuestion` với 3 lựa chọn (tự viết
+   fixture / loại riêng test này khỏi CI kèm ghi chú / dừng hẳn chờ user tự sửa 1.6). User
+   chọn: viết fixture. Thêm `_insert_digest_row`/`_cleanup_digest_row` + fixture `digest_row`
+   (đúng khuôn `clean_health_table` đã có sẵn cùng file, và đúng những gì docstring module đã
+   ghi từ đầu nhưng code trước đó chưa làm theo).
+
+**Kết quả cuối — run https://github.com/Quybuno/industry-intel-bot/actions/runs/31664879120:**
+CI xanh 9/9 step, gitleaks xanh, tổng thời gian job CI **1 phút 50 giây** (03:45:29–03:47:19
+UTC), gitleaks **10 giây**. Breakdown từng step (từ log thật, không phải ước tính):
+
+| Step | Thời gian thật trên CI |
+|---|---|
+| Initialize containers (Postgres service) | 20s |
+| Setup Python 3.12 + uv + install deps | ~4s |
+| ruff check + format --check | <1s |
+| mypy src/ | 8s |
+| alembic upgrade head | 2s |
+| dbt parse + seed + build + compile | 20s |
+| sqlfluff lint dbt_project/ | 13s |
+| pytest tests/unit | 6s |
+| pytest tests/integration | 25s |
+| dagster definitions validate | 4s |
+
+Trước khi push MỖI lần sửa, đều tái hiện lỗi + xác nhận fix trên DB tạm cục bộ (drop/create
+`ci_test_tmp`, `alembic upgrade head` từ đầu) — không đoán từ log CI rồi sửa mù.
+
+### 17.6 3 drill cố ý phá CI (DONE WHEN) + bật branch protection — verify thật trên PR #1
+
+Cả 3 drill làm TRÊN nhánh `feature/ci-backfill-pipeline` (push → xác nhận đỏ đúng chỗ qua
+API thật → revert → xác nhận xanh lại), không phải mô phỏng:
+
+1. **Lỗi type cố ý** (`src/intel_bot/config.py`, thêm `_ci_drill_bad_type: int = "not an int"`)
+   — commit `5a1ccf8`. CI đỏ ĐÚNG ở bước `mypy src/`, `ruff check + format --check` (bước
+   trước) vẫn xanh, mọi bước sau `skipped`. Revert ở `67bde31`, xanh lại.
+2. **Secret giả cố ý** (`ci_drill_secret.txt`, 1 access key + 1 secret key kiểu AWS) —
+   commit `a80c885`. Job `gitleaks` đỏ, job `CI` KHÔNG bị ảnh hưởng (2 job độc lập, đúng
+   thiết kế). Phát sinh ngoài dự tính khi revert: `gitleaks-action` quét theo commit RANGE
+   của PR (`--first-parent <base>^..<head>`), không phải chỉ tree hiện tại — xoá file ở
+   commit sau KHÔNG xoá secret khỏi commit đã push trước đó, gitleaks vẫn thấy ở lần scan
+   tiếp theo (xác nhận thật, không suy đoán, thấy CI vẫn đỏ sau khi đã xoá file). Không
+   rewrite lịch sử nhánh PR đã push (rủi ro không cần thiết cho secret giả) — dùng đúng cơ
+   chế `.gitleaksignore` (allowlist theo fingerprint) mà gitleaks hỗ trợ chính thức, KHÔNG
+   nới rule `generic-api-key`/`aws-access-token` cho cả repo. Vòng đầu chỉ allowlist 1
+   fingerprint (bỏ sót fingerprint thứ 2 vì output cục bộ bị `tail` cắt bớt) — CI vẫn đỏ,
+   soi log CI đầy đủ mới thấy đúng 2 fingerprint (2 rule khác nhau khớp 2 dòng khác nhau
+   trong cùng 1 file), thêm nốt fingerprint còn thiếu → xanh (`453c83c`).
+3. **Phá tính lũy đẳng cố ý** (`src/intel_bot/ingest/loader.py::upsert_silver_article`, xoá
+   hẳn mệnh đề `ON CONFLICT (canonical_url) DO UPDATE ...` chỉ còn `INSERT` trần) — commit
+   `1715000`. Tái hiện + xác nhận đỏ CỤC BỘ trước (`UniqueViolation` trên `articles_pkey`)
+   rồi mới push. CI đỏ ĐÚNG ở bước `pytest tests/integration`, bắt bởi **2 test độc lập cùng
+   lúc**: `test_backfill.py::test_backfill_idempotent_and_isolated` (task 1.8, mới viết) VÀ
+   `test_loader.py::test_normalize_partition_three_times_is_idempotent` (có sẵn từ trước) —
+   cùng nguyên nhân gốc. `dagster definitions validate` (bước sau) `skipped` đúng. Revert ở
+   `c92c00c`, diff xác nhận khớp NGUYÊN VĂN bản trước drill (không sót/thừa), xanh lại.
+
+**Branch protection trên `main`** (§17.3) bật qua REST API
+(`PUT /repos/.../branches/main/protection`): `required_status_checks` (strict=true, bắt
+buộc context `CI` + `gitleaks (secret scan)`), `enforce_admins=true` (kể cả admin cũng
+không bypass được), `required_pull_request_reviews` (bắt buộc đi qua PR — ban đầu QUÊN mục
+này, set `null`, chỉ chặn merge-khi-chưa-xanh chứ KHÔNG chặn push thẳng; tự phát hiện lại
+bằng cách ĐỌC LẠI response, thấy `required_pull_request_reviews: null` mới nhận ra thiếu,
+sửa lại với `required_approving_review_count: 0` — bắt buộc qua PR nhưng không cần người
+approve, hợp với repo 1 người), `allow_force_pushes=false`, `allow_deletions=false`.
+
+**Verify KHÔNG chỉ đọc lại config — thử push thẳng thật vào `main`:** checkout nhánh tạm từ
+`origin/main`, tạo 1 commit test vô hại, `git push origin _tmp_protection_test:main` →
+
+```
+remote: error: GH006: Protected branch update failed for refs/heads/main.
+remote: - Changes must be made through a pull request.
+remote: - 2 of 2 required status checks are expected.
+```
+
+Bị từ chối thật, đúng thông điệp mong đợi. Xoá nhánh tạm cục bộ, không có gì lọt vào `main`.
+
+**Task 1.8 + 1.9 — TẤT CẢ DONE WHEN đã verify thật, không còn mục nào "chờ".**
+
+## 18. Đã làm — 1.10 Production + RUNBOOK (PRODUCTION_PLAN §12.1, §12.2, §16.1–16.4, §17.2,
+§18.4, §23.2)
+
+Máy production do user chọn: **máy remote Windows (đã có Docker cài sẵn)**, KHÔNG phải máy
+dev này. Thử SSH vào (`113.161.126.100:33888`) để tự cấu hình từ xa — thất bại thật (port đó
+không phải sshd, một tiến trình KHÁC đang chiếm, `Get-Service sshd` báo không tồn tại service
+— không phải đoán, xem log chat gốc) — user quyết định tự bê code sang máy đó, tôi chuẩn bị
+sẵn toàn bộ code/docker-compose/tài liệu để user tự chạy trên đó. Vì vậy: mọi phần CODE (git-
+publish, archive prune, Dockerfile, docker-compose) đã tự chạy thật và verify được trên máy
+dev này (build image thật, `docker compose up`, `docker restart`, push thật lên GitHub) —
+phần DUY NHẤT chưa tự verify được là **reboot thật của đúng máy production** (không có quyền
+truy cập máy đó).
+
+### 18.1 D6 — commit + push `docs-site/` lên GitHub Pages (§12.1)
+
+`docs-site/` KHÔNG BAO GIỜ được commit trước task này (quy ước cũ, xem mục 5B "cố ý chưa
+làm"). Thử bật GitHub Pages trước khi viết code — phát hiện **GitHub Pages không serve được
+từ thư mục con tuỳ ý** (`POST /pages` với `path=/docs-site` → GitHub từ chối thật, không phải
+đọc docs). 2 hướng: đổi tên `docs-site/` → `docs/` trên `main` (đơn giản hơn nhưng phải sửa
+quy ước dùng khắp repo), hoặc nhánh riêng `gh-pages` (giữ nguyên convention). User chọn nhánh
+riêng.
+
+`src/intel_bot/publish/git_publish.py` (mới): dùng `git worktree` (không phải `git subtree`
+— không tạo commit thừa trên `main` cho một thư mục toàn artifact sinh tự động) trỏ nhánh
+`gh-pages`, đồng bộ NỘI DUNG `docs-site/` vào ROOT của worktree, commit+push nếu có đổi. PAT
+(`GIT_PUBLISH_TOKEN`) chỉ nhúng trong URL truyền cho ĐÚNG một lệnh `git push` (không
+`git remote set-url` — không đụng `.git/config`), mọi output lỗi được redact token trước khi
+log/trả về. Push lỗi (thiếu token, PAT hết hạn, mất mạng, hoặc `ensure_worktree()` tự nó lỗi
+vì nhánh chưa bootstrap) đều bị bắt (kể cả exception, không chỉ field `.error`) và chuyển
+thành log warning + `notifier.send_alert()` — KHÔNG fail asset (rào chắn task 1.10 mục 1, vì
+heartbeat vẫn phải ping dù bước này lỗi kiểu gì).
+
+Bootstrap nhánh `gh-pages` làm THẬT (không phải hướng dẫn suông): tạo bằng scratch clone
+riêng, nội dung ban đầu = digest thật đang có (15 bài, publish lại cho mới), push lên
+`origin/gh-pages` thật.
+
+**Verify THẬT từng DONE WHEN, không phải đọc code rồi tin:**
+- `uv run python -m src.intel_bot.cli publish` lần 1 → commit thật lên `gh-pages`
+  (`27209a4`), xác nhận bằng `git show gh-pages:index.html` trên chính bare repo remote.
+- Chạy lại publish lần 2, nội dung KHÔNG đổi → `git log origin/gh-pages -1` vẫn `27209a4`,
+  KHÔNG có commit mới — P1 xác nhận đúng.
+- User tự bật GitHub Pages qua UI (PAT của tôi thiếu quyền "Pages", 403 khi thử qua API) —
+  `curl https://quybuno.github.io/industry-intel-bot/` → HTTP 200, **15 bài, 0 kết quả
+  "giả lập"** trong cả `index.html` lẫn `articles.json`.
+
+### 18.2 D7 — archive pruning (§12.2)
+
+`src/intel_bot/publish/archive.py` (mới) — `archive_days` (`config/app.yaml`) từ chỗ chỉ
+"tài liệu hoá" (mục 5B) thành thật sự xoá `docs-site/archive/*.json` cũ hơn ngưỡng (so theo
+TÊN FILE, không phải mtime). Thuần filesystem, không nhận `connection` — Postgres không bị
+đụng tới.
+
+**Verify thật:** tạo file archive giả `2026-07-01.json` (43 ngày trước) + `2026-08-10.json`
+(3 ngày trước, trong hạn), chạy publish → đúng 1 file bị xoá (`2026-07-01.json`), file trong
+hạn còn nguyên. Dữ liệu Postgres (`silver.articles` cũ hơn 7 ngày) vẫn truy vấn được bình
+thường (khác bảng hoàn toàn, không liên quan tới việc xoá file JSON).
+
+Cả D6 và D7 wire vào **2 nơi**: asset `published_site` (bắt buộc theo đề) VÀ helper dùng
+chung `_publish_and_sync_docs_site()` trong `cli.py` (gọi từ cả lệnh `publish` lẫn `pipeline`)
+— quyết định chủ động: nếu chỉ wire vào asset, đường CLI dự phòng (task 1.8/1.9) sẽ báo
+"publish xong" nhưng không hề cập nhật trang thật, phá đúng mục đích "dự phòng" của nó.
+
+8 test mới (`tests/unit/test_archive_prune.py`, `tests/unit/test_git_publish.py`) — dùng git
+THẬT (bare repo cục bộ đóng vai "origin", không mock git, không cần PAT vì remote local
+không phải HTTPS — nhánh code path xử lý remote non-HTTPS được tách riêng, tiện thể là một
+cải thiện robustness thật cho trường hợp remote SSH sau này). 291/291 test tổng.
+
+### 18.3 Daemon 24/7 (§16.1-16.4) — Docker, build + chạy thật trên máy dev trước khi viết tài liệu
+
+`Dockerfile` (mới) — 1 image dùng chung cho `dagster-daemon` + `dagster-webserver` (khác
+`command:` trong compose). 2 lỗi thật gặp khi build/chạy LẦN ĐẦU (không phải suy đoán từ CI):
+
+1. **`uv sync` vỡ ngay ở layer đầu** — `hatchling` đọc `pyproject.toml`'s `readme =
+   "README.md"` lúc resolve, nhưng layer đó mới copy `pyproject.toml`+`uv.lock`, chưa có
+   `README.md`. Sửa: copy cả `README.md` cùng lúc.
+2. **Container crash ngay khi import `definitions.py`** — CHÍNH XÁC lỗi `manifest.json`
+   không tồn tại đã gặp ở CI (task 1.9): `.dockerignore` loại `dbt_project/target/` (đúng,
+   đó là artifact) nhưng nghĩa là container mới KHÔNG có manifest. Sửa: `docker-entrypoint.sh`
+   chạy `dbt parse` (chỉ parse, không cần seed/build như CI — daemon/webserver chỉ IMPORT
+   manifest, không tự chạy compile/build lúc khởi động) trước khi giao lại cho command thật.
+
+`docker-compose.yml`: `dagster-daemon`+`dagster-webserver` chung 1 volume `dagster_home`
+(bắt buộc — thiếu thì run do schedule tạo ra không hiện trên UI, cursor sensor mất khi
+restart). `DATABASE_URL` override trỏ `postgres:5432` (hostname/port NỘI BỘ mạng docker, khác
+giá trị `.env` dùng cho máy dev truy cập từ host qua `localhost:5435`). Webserver bind
+`127.0.0.1:3000` (không public — không dịch vụ nào ở đây có auth). Cả 3 service (kể cả
+`postgres`, trước đây không có) thêm `restart: unless-stopped`.
+
+**Verify thật, không chỉ đọc file compose rồi tin:**
+- `docker compose build` → 2 lỗi trên, sửa xong build sạch.
+- `docker compose up -d dagster-daemon dagster-webserver` → daemon log show sensor tick bình
+  thường (`cost_sensor`/`run_failure_sensor`/`quarantine_sensor` đều chạy), webserver
+  `Serving dagster-webserver on http://0.0.0.0:3000`.
+- `curl http://127.0.0.1:3000/` → HTTP 200. GraphQL `schedulesOrError` → cả 3 schedule
+  `RUNNING`.
+- `docker restart` cả 2 container → GraphQL lại → vẫn cả 3 `RUNNING` — xác nhận state sống
+  qua restart nhờ volume `dagster_home` dùng chung.
+- Dừng 2 container test này lại sau khi verify (không để chạy song song với máy production
+  thật sau này — tránh 2 nơi cùng publish/ping heartbeat).
+
+`dagster_project/schedules.py`: **đổi `default_status` từ STOPPED → `RUNNING`** cho cả 3
+schedule (05:00/12:00/18:00). Trước đây STOPPED CÓ CHỦ ĐÍCH (task 0.12/1.6, lý do ghi rõ
+trong code: "chưa có daemon production thật") — giờ daemon đã có thật, để STOPPED sẽ khiến
+DONE WHEN "reboot → lịch 05:00 tự chạy không cần can thiệp" SAI (phải vào UI bật tay mỗi lần
+daemon khởi động lại từ đầu, đúng thứ DONE WHEN cấm). Đây KHÔNG phải sửa business logic —
+chỉ là default-config vận hành, quyết định thuộc đúng phạm vi task 1.10.
+
+Tiện thể phát hiện `gold.mart_pipeline_health` (incremental) có 0 dòng trên DB dev — do các
+lần dọn dẹp có phạm vi (scoped delete) trong suốt phiên làm việc dài này vô tình xoá luôn vài
+ngày thật. KHÔNG phải bug (model incremental đúng thiết kế không tự backfill ngày cũ khi
+không được yêu cầu) — rebuild lại cho 4 ngày thật gần nhất bằng `dbt build --select
+mart_pipeline_health --vars run_date=...` từng ngày, dọn dẹp môi trường dev, không đụng model.
+
+### 18.4 `docs/DEPLOYMENT.md` + Windows Task Scheduler (mới)
+
+Bootstrap 1 lần (alembic, build image, KHÔNG cần bootstrap `gh-pages` — nhánh đã tồn tại
+sẵn trên GitHub, không phụ thuộc máy nào), lệnh start/stop/log chính xác cho repo này (đã tự
+chạy thật từng lệnh, không suy đoán cú pháp), đăng ký Task Scheduler khởi động Docker Desktop
+lúc boot + `docker compose up -d` dự phòng sau vài phút. **Phần reboot thật KHÔNG tự verify
+được** (không SSH được vào máy production) — ghi rõ ngay đầu file, không giấu, để user tự làm
+1 lần sau khi deploy.
+
+**§17.2 — quyết định KHÔNG tạo `pipeline.yml` cron GitHub Actions:** đã có daemon thật 24/7 +
+3 schedule `RUNNING` (mục 18.3) → thêm cron song song sẽ chạy TRÙNG giờ 05:00, tốn gấp đôi
+tiền LLM thật (không phải rủi ro lý thuyết) + có thể đụng nhau lúc push `gh-pages`. `ci.yml`
+(task 1.9) giữ nguyên — đó là CI mỗi PR, không phải lịch hằng ngày, không liên quan.
+
+### 18.5 `docs/RUNBOOK.md` (mới) — 8 tình huống §18.4, MỌI lệnh chẩn đoán tự chạy thật
+
+Không đoán tên cột — vài chỗ ban đầu đoán sai, tự sửa khi chạy thử vỡ:
+- `mart_pipeline_health` không có cột `run_date` (thật là `pipeline_date`) hay
+  `digest_article_count` (không tồn tại).
+- `mart_daily_digest`/`fct_article_score` đều KHÔNG có cột `content_hash` — cột đó chỉ có ở
+  `silver.articles`, phải JOIN qua `article_id` mới lấy được (scenario 6 "bài trùng").
+- Scenario 6 xử lý (`dbt build --select int_articles_deduped+`) — tự hỏi liệu `dbt build
+  --select` có nhận model `materialized="ephemeral"` làm target không (không chắc), chạy thử
+  thật → nhận, tự resolve đúng 2 model downstream thật (`fct_article_score`+
+  `mart_daily_digest`).
+- Scenario 8 (git push bị từ chối) — tái hiện THẬT bằng PAT giả, lấy đúng message lỗi GitHub
+  trả về, dọn lại commit cục bộ mồ côi phát sinh trong worktree `gh-pages` sau khi push thất
+  bại (push fail nhưng commit LOCAL vẫn tồn tại — `git reset --hard origin/gh-pages` trong
+  worktree để dọn).
+
+Tự đọc lại (mục 23.2 khoản 7) → bắt được 1 tham chiếu chéo sai (`§7` không tồn tại, đúng là
+mục 9) + 1 tên schedule sai trong `DEPLOYMENT.md` (`daily_pipeline_schedule` là tên BIẾN
+Python, tên THẬT hiện trên UI/GraphQL là `daily_pipeline_job_schedule`, tự đặt bởi
+`build_schedule_from_partitioned_job`) — sửa cả hai.
+
+### 18.6 Go-live checklist §23.2 — 7/7 mục, bằng chứng thật
+
+1. **Toàn bộ dbt tests pass** — `dbt test --vars run_date=2026-08-13` (không loại trừ gì) →
+   **50/50 PASS**, kể cả `assert_digest_not_empty` (dữ liệu production thật đủ ≥5 dòng).
+2. **Alert đã test bằng cách gây lỗi thật** — đã làm THẬT ở task 1.6 (mục 16.3: cố ý fail
+   asset, xoá `mart_daily_digest`, chèn `quarantine_rate` giả vượt ngưỡng — cả 3 đều có
+   Telegram alert thật, dẫn link run) — không lặp lại, chỉ tham chiếu bằng chứng cũ.
+3. **Heartbeat đã test bằng cách bỏ một ngày — TEST THẬT, không phải pseudo-verification:**
+   user tạm giảm Period (5 phút)/Grace (2 phút) trên healthchecks.io → tôi KHÔNG ping trong
+   9 phút → Events log check tự chuyển `up → down` lúc 08:31 (không phải giả lập) → user tự
+   kiểm tra Integrations tab: email `ngocquydo10@gmail.com` "Delivered" → **user tìm thấy
+   email thật**: *"'My First Check' is UP. The downtime lasted 20 minutes, 12 seconds."*,
+   `Status Changed to Up at: Thu, 13 Aug 2026 08:52:01 +0000`. User tự đặt lại Period/Grace
+   về giá trị gốc sau khi xác nhận xong.
+4. **Backfill đã test** — đã làm THẬT ở task 1.8 (`test_backfill.py`, tìm ra + sửa 1 bug thật
+   `first_seen_date`) — tham chiếu bằng chứng cũ, không lặp lại.
+5. **`.env` không nằm trong git; gitleaks pass** — `git ls-files | grep '^\.env$'` → rỗng,
+   `git check-ignore .env` → có (đúng gitignore). gitleaks xanh trên mọi CI run của nhánh này
+   (task 1.9) + scan thủ công qua Docker trên toàn lịch sử — "no leaks found".
+6. **Disclaimer có trên trang** — `curl` trang thật →
+   *"Tóm tắt và đánh giá trên trang này do AI sinh tự động — vui lòng đọc bài gốc..."* — có
+   thật, không phải đọc template rồi tin.
+7. **RUNBOOK đã đọc lại** — tự đọc lại toàn bộ `RUNBOOK.md`+`DEPLOYMENT.md` sau khi viết, bắt
+   được 3 lỗi thật (mục 18.5) — không phải "đọc lướt qua rồi tick".
+
+**Task 1.10 — 6/6 hạng mục DONE WHEN chính đã verify thật** (commit+push thật, no-op-khi-
+không-đổi thật, prune thật, daemon thật+sống-qua-restart thật, RUNBOOK/checklist đầy đủ bằng
+chứng thật). **1 hạng mục KHÔNG verify được từ phiên làm việc này: "reboot toàn bộ hệ điều
+hành → daemon tự khởi động lại → lịch 05:00 chạy không cần can thiệp"** — không có quyền
+truy cập máy production thật (SSH thất bại, user tự deploy). Đã ghi rõ, không giấu, trong cả
+`docs/DEPLOYMENT.md` (đầu file) lẫn ở đây — user cần tự làm 1 lần sau khi deploy xong.
+
+### 18.7 Quyết định cuối về máy production — đổi từ "máy remote" sang "chính máy dev này"
+
+Sau khi viết xong toàn bộ mục 18.1–18.6 (lúc đó vẫn giả định máy remote), user quyết định
+**KHÔNG dùng máy remote nữa** (SSH chưa từng kết nối được, xem đầu mục 18) — chạy production
+thẳng trên máy dev này. Cập nhật:
+
+- `docs/DEPLOYMENT.md` sửa lại toàn bộ phần "copy sang máy remote"/"bootstrap trên máy mới"
+  thành thực tế: máy này đã bootstrap sẵn mọi thứ từ chính lúc phát triển task 1.10 (schema,
+  worktree `gh-pages`, image build).
+- **`LLM_PROVIDER`: `mock` → `deepseek`** trong `.env` (không tracked, không commit) — hỏi
+  rõ user trước khi đổi (quyết định có chi phí thật) — **user xác nhận đổi ngay**.
+- **Test reboot thật: user chủ động từ chối** (sẽ ngắt phiên làm việc hiện tại) — chấp nhận
+  bằng chứng gián tiếp đã có (`docker restart` sống qua, cơ chế `restart: unless-stopped`
+  chuẩn của Docker) thay vì reboot toàn máy.
+- Thử tự đăng ký 2 Scheduled Task qua PowerShell — **bị chặn thật**
+  (`Register-ScheduledTask : Access is denied`, phiên PowerShell hiện tại không chạy quyền
+  Administrator, agent không tự nâng quyền được) — ghi rõ trong `DEPLOYMENT.md`, user cần tự
+  chạy 2 đoạn lệnh đó trong PowerShell (Run as Administrator).
+- **Khởi động daemon production THẬT** (không phải lần test nữa): `docker compose up -d
+  postgres dagster-daemon dagster-webserver` → xác nhận `LLM_PROVIDER=deepseek` bên trong
+  container thật (`docker compose exec dagster-daemon printenv LLM_PROVIDER`), GraphQL xác
+  nhận lại cả 3 schedule `RUNNING` trên chính instance production này.
+
+**Trạng thái cuối cùng lúc kết thúc phiên làm việc:** `dagster-daemon`+`dagster-webserver`
+đang chạy THẬT trên máy này, provider `deepseek`, 3 lịch `RUNNING` — lịch 05:00/12:00/18:00
+kế tiếp sẽ tự chạy, tốn chi phí LLM thật. Việc CÒN LẠI ngoài phạm vi có thể tự làm từ phiên
+này: user tự đăng ký 2 Scheduled Task (quyền Admin) + tự cân nhắc có test reboot thật hay
+không (đã từ chối lúc này, có thể làm sau).

@@ -14,6 +14,70 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # KHÔNG expose port này ra Internet công khai (§19.3) — chỉ map ra localhost của máy
+    # host để dev/debug từ chính máy đó (vd. pgAdmin, psql cục bộ). Nếu máy triển khai có
+    # firewall/router NAT, KHÔNG forward port này ra ngoài.
+    restart: unless-stopped
+
+  # dagster-daemon + dagster-webserver (task 1.10, §16.3 "dagster | build local | daemon +
+  # webserver") — CÙNG một image (xem Dockerfile), khác `command:`, CHUNG một DAGSTER_HOME
+  # (volume `dagster_home`) để daemon (chạy schedule/sensor) và webserver (xem UI) thấy cùng
+  # một run storage — thiếu điều này, run do schedule tạo ra sẽ không hiện trên UI.
+  dagster-daemon:
+    build: .
+    command: ["dagster-daemon", "run", "-f", "dagster_project/definitions.py"]
+    env_file:
+      - .env
+    environment:
+      # Ghi đè DATABASE_URL/POSTGRES_HOST từ .env (đó là giá trị cho máy DEV, trỏ
+      # localhost:${POSTGRES_PORT}) — bên trong mạng docker-compose, Postgres có tên host
+      # `postgres` và cổng NỘI BỘ container luôn là 5432, không phải cổng map ra ngoài.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      DAGSTER_HOME: /opt/dagster/dagster_home
+      # daemon KHÔNG có sensor/schedule nào cần webserver URL để tự hoạt động, nhưng alert
+      # Telegram gắn link "xem run" (task 1.6 DONE WHEN) — trỏ đúng máy này, không phải
+      # localhost (khác máy dev).
+      DAGSTER_WEBSERVER_URL: ${DAGSTER_WEBSERVER_URL:-http://localhost:3000}
+    volumes:
+      - dagster_home:/opt/dagster/dagster_home
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  dagster-webserver:
+    build: .
+    command:
+      [
+        "dagster-webserver",
+        "-f",
+        "dagster_project/definitions.py",
+        "-h",
+        "0.0.0.0",
+        "-p",
+        "3000",
+      ]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      DAGSTER_HOME: /opt/dagster/dagster_home
+    volumes:
+      - dagster_home:/opt/dagster/dagster_home
+    ports:
+      # Mặc định chỉ bind vào localhost của máy host — xem UI từ xa qua SSH tunnel/VPN,
+      # KHÔNG mở thẳng ra Internet (§19.3 nói rõ Postgres/Ollama, nhưng cùng tinh thần áp
+      # dụng cho webserver: đây không phải dịch vụ có auth, không nên public). Đổi thành
+      # "3000:3000" (bỏ "127.0.0.1:") nếu THẬT SỰ cần truy cập LAN, tự cân nhắc rủi ro.
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
   ollama:
     image: ollama/ollama
@@ -27,3 +91,4 @@ services:
 volumes:
   pgdata:
   ollama_data:
+  dagster_home:

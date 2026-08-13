@@ -47,7 +47,17 @@ publish:
   # lọc khi build. Hai giá trị dưới đây giữ lại để tài liệu hoá §12.2 cho người đọc config,
   # KHÔNG dùng để lọc lại trong Python (rào chắn task 0.11).
   window_hours: 48
+  # D7/task 1.10: archive_days giờ THẬT SỰ được dùng (src/intel_bot/publish/archive.py) —
+  # trước đó chỉ nằm ở đây để tài liệu hoá.
   archive_days: 7
+  # D6/task 1.10 (§12.1): nhánh GitHub Pages serve nội dung docs-site/ — KHÔNG phải `main`
+  # (GitHub Pages không serve được từ thư mục con tuỳ ý như docs-site/, xem
+  # src/intel_bot/publish/git_publish.py). Nhánh này phải được tạo THẬT trên remote trước
+  # (bootstrap 1 lần, xem docs/RUNBOOK.md), code không tự tạo.
+  gh_pages_branch: "gh-pages"
+  # Thư mục worktree cục bộ trỏ nhánh gh_pages_branch — nằm trong .gitignore, KHÔNG phải
+  # source, chỉ là nơi trung gian để đồng bộ docs-site/ sang nhánh kia.
+  gh_pages_worktree_dir: ".gh-pages-worktree"
   # Link repo hiển thị ở footer trang publish (§12.4) — lấy đúng URL git remote thật, không
   # bịa.
   repo_url: "https://github.com/quybuno/industry-intel-bot"

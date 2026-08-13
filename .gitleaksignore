@@ -1,0 +1,12 @@
+# Fingerprint theo đúng cơ chế gitleaks hỗ trợ (không phải nới rule) — 1 finding cụ thể đã
+# xác nhận là FAKE, cố ý tạo ở task 1.9 để verify job gitleaks bắt đúng thật (xem
+# docs/PROGRESS.md mục 17). Xoá khỏi working tree không xoá khỏi lịch sử git (gitleaks scan
+# `fetch-depth: 0`, quét cả lịch sử) — không rewrite lịch sử một nhánh PR đã push (rủi ro/
+# không cần thiết cho một secret giả), dùng đúng cơ chế allowlist-theo-fingerprint chính thức
+# của gitleaks thay vì tắt/nới rule generic-api-key cho cả repo.
+a80c88537dcbc8586b990336860cd7dd2d9dbada:ci_drill_secret.txt:generic-api-key:6
+# File có 2 dòng "trông giống secret" khớp 2 rule KHÁC NHAU của gitleaks (aws-access-token
+# cho AWS_ACCESS_KEY_ID ở dòng 5, generic-api-key cho AWS_SECRET_ACCESS_KEY ở dòng 6 phía
+# trên) — bỏ sót fingerprint này ở lần đầu vì output cục bộ (docker run) bị cắt bởi `tail`,
+# CI log đầy đủ mới lộ ra cả 2. Ghi lại để không lặp lại nhầm lần sau.
+a80c88537dcbc8586b990336860cd7dd2d9dbada:ci_drill_secret.txt:aws-access-token:5

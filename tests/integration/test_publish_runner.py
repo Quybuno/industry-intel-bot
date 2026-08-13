@@ -22,7 +22,7 @@ from sqlalchemy.dialects import postgresql
 from src.intel_bot.publish.digest_reader import fetch_digest_rows, mark_published
 from src.intel_bot.publish.runner import run_publish
 
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
 TEST_SLUG = "test-publish-runner"
 ARTICLE_ID = uuid.uuid5(uuid.NAMESPACE_URL, f"article/{TEST_SLUG}")
 SCORE_ID = uuid.uuid5(uuid.NAMESPACE_URL, f"score/{TEST_SLUG}")

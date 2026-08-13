@@ -1,0 +1,173 @@
+# CI (task 1.9, PRODUCTION_PLAN §17.1) — chạy trên mọi PR vào `main`.
+#
+# 9 bước theo ĐÚNG bảng §17.1 (thứ tự CHẠY dưới đây ưu tiên phụ thuộc thật — bảng §17.1
+# liệt kê CÁC KIỂM TRA bắt buộc, không phải thứ tự chạy tuần tự bắt buộc). 2 phụ thuộc thật
+# đã tự bắt được (không phải suy đoán, xem log CI thật của PR #1):
+#   - alembic phải migrate xong trước sqlfluff/pytest integration/dbt vì các bước đó cần
+#     schema tồn tại
+#   - dbt parse/compile phải chạy xong TRƯỚC pytest tests/unit: dagster_project/assets/
+#     dbt_assets.py đọc dbt_project/target/manifest.json ngay lúc import module (decorator-
+#     time), nên bất kỳ test unit nào import dagster_project.definitions (đúng nghĩa "unit",
+#     không đụng Postgres) đều fail lúc COLLECT nếu manifest chưa sinh — máy dev không lộ ra
+#     vì luôn có target/ cũ còn sót, CI checkout sạch mới lộ (xem comment tại step tương ứng)
+#   1. setup Python 3.12 + uv
+#   2. ruff check + ruff format --check
+#   3. mypy src/
+#   4. alembic upgrade head (DB tạm — service container Postgres mới tinh mỗi lần chạy CI)
+#   5. dbt parse + dbt compile
+#   6. sqlfluff lint dbt_project/
+#   7. pytest tests/unit
+#   8. pytest tests/integration (provider=mock, Postgres service container — mạng RSS/GitHub
+#      giả bằng httpx.MockTransport, KHÔNG gọi mạng/LLM thật)
+#   9. dagster definitions validate (tên lệnh xác nhận đúng trên dagster 1.13.17 đang cài —
+#      `uv run dagster definitions --help`; superseded bởi `dg check defs` nhưng vẫn hoạt
+#      động, dùng lệnh cũ vì `dg` là CLI riêng chưa có trong dependency của repo)
+#
+# gitleaks (§23.2) chạy ở job riêng, độc lập với 9 bước trên — không phụ thuộc DB/Python env.
+#
+# Rào chắn cứng (đề bài task 1.8/1.9): KHÔNG gọi LLM thật (LLM_PROVIDER=mock, không set
+# DEEPSEEK_API_KEY), KHÔNG ping heartbeat thật (không set HEARTBEAT_URL), KHÔNG gửi alert
+# thật (không set TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID/SLACK_WEBHOOK_URL) — code hiện có (P4,
+# task 1.6) đã tự log warning và bỏ qua khi các biến này rỗng, verify thật ở task 1.6.
+# KHÔNG chạy `dbt build --full-refresh` trên DB thật ở đây — CI chỉ parse/compile dbt, việc
+# `dbt build` thật (mock provider) nằm trong pytest integration/test_backfill.py, chạy trên
+# service container tạm, không phải DB dev/production.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: intel
+          POSTGRES_PASSWORD: intel
+          POSTGRES_DB: intel_bot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U intel -d intel_bot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://intel:intel@localhost:5432/intel_bot
+      POSTGRES_USER: intel
+      POSTGRES_PASSWORD: intel
+      POSTGRES_DB: intel_bot
+      POSTGRES_PORT: "5432"
+      POSTGRES_HOST: localhost
+      LLM_PROVIDER: mock
+      # Ép UTF-8 tường minh cho MỌI step — dbt/sqlfluff tự đọc file .sql có comment tiếng
+      # Việt lúc build manifest, vỡ UnicodeDecodeError dưới decode mặc định không phải UTF-8
+      # nếu thiếu 2 biến này (gặp thật trên Windows dev, giữ luôn ở CI cho chắc — runner
+      # ubuntu-latest mặc định đã UTF-8 nhưng không dựa vào đó, tường minh vẫn hơn).
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12 + uv
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: ruff check + ruff format --check
+        run: |
+          uv run ruff check src/ dagster_project/ tests/ alembic/env.py
+          uv run ruff format --check src/ dagster_project/ tests/ alembic/env.py
+
+      - name: mypy src/
+        run: uv run mypy --strict src/
+
+      - name: alembic upgrade head (DB tạm)
+        run: uv run alembic upgrade head
+
+      # PHẢI chạy trước pytest tests/unit: dagster_project/assets/dbt_assets.py truyền
+      # `manifest=dbt_project.manifest_path` (= dbt_project/target/manifest.json) ngay lúc
+      # module được import (decorator-time, không phải lúc materialize) — bất kỳ test nào
+      # `import dagster_project.definitions` (vd. tests/unit/test_dagster_definitions.py,
+      # đúng nghĩa "unit" vì không đụng Postgres) đều fail lúc COLLECT nếu manifest chưa
+      # tồn tại. Máy dev không lộ ra vì luôn có `target/` cũ còn sót từ những lần chạy `dbt
+      # build` thủ công trước đó — CI checkout sạch mới lộ ra thứ tự sai này (bắt được thật
+      # ở lần chạy CI đầu tiên trên PR #1, không phải suy đoán).
+      #
+      # `dbt seed` + `dbt build` chạy TRƯỚC `dbt compile`/pytest integration vì 2 lý do, cả
+      # 2 đều bắt được thật trên CI (không phải suy đoán):
+      #   1. `models/intermediate/int_articles_deduped.sql` gọi `run_query()` ngay trong THÂN
+      #      model (mục đích: log số nhóm content_hash trùng) — Jinja `{% if execute %}`
+      #      khiến lệnh này chạy THẬT lúc `dbt compile`, không chỉ lúc `dbt run`, và nó SELECT
+      #      từ `gold.stg_articles` — một VIEW dbt tự tạo, KHÔNG nằm trong migration alembic
+      #      (alembic chỉ tạo bronze/silver) → DB tạm mới migrate xong chưa có view này khiến
+      #      `dbt compile` vỡ "relation does not exist".
+      #   2. `pytest tests/integration` (test_alerting.py, test_publish_runner.py,
+      #      test_score_runner.py, test_backfill.py) SELECT/INSERT trực tiếp vào
+      #      `gold.fct_article_score`/`gold.mart_daily_digest`/`gold.mart_pipeline_health`
+      #      qua SQL thô, không qua dbt ref() — những bảng này CHỈ được dbt tạo (materialized
+      #      table/incremental), alembic không biết tới → cùng lỗi "relation does not exist"
+      #      trên DB tạm chưa từng chạy dbt build lần nào.
+      # `--exclude assert_digest_not_empty`: test nghiệp vụ §13.2 (mart_daily_digest phải
+      # >= 5 dòng) ĐÚNG cho production (nhiều ngày cộng dồn), nhưng chắc chắn FAIL ở đây vì
+      # bronze/silver hoàn toàn trống trên DB tạm mới migrate (0 dòng khắp nơi) — không phải
+      # lỗi, chỉ là bối cảnh seeding-schema không áp dụng ngưỡng khối lượng production.
+      # Toàn bộ bước này < 2s (0 dòng bronze/silver để xử lý), KHÔNG phải `--full-refresh`,
+      # và chạy trên DB tạm của service container — không vi phạm rào chắn "không chạy dbt
+      # build --full-refresh trên DB thật". Máy dev không lộ ra 2 vấn đề trên vì DB dev đã có
+      # sẵn toàn bộ bảng/view này từ những lần `dbt build` thủ công trước đó trong phiên.
+      - name: dbt parse + dbt compile
+        run: |
+          uv run dbt parse --project-dir dbt_project --profiles-dir dbt_project
+          uv run dbt seed --project-dir dbt_project --profiles-dir dbt_project
+          uv run dbt build --project-dir dbt_project --profiles-dir dbt_project \
+            --vars "{\"run_date\": \"$(date -u +%F)\"}" \
+            --exclude assert_digest_not_empty
+          uv run dbt compile --project-dir dbt_project --profiles-dir dbt_project
+
+      - name: sqlfluff lint dbt_project/
+        run: uv run sqlfluff lint dbt_project/
+
+      - name: pytest tests/unit
+        run: uv run pytest tests/unit -v
+
+      - name: pytest tests/integration (provider=mock, Postgres service container)
+        run: uv run pytest tests/integration -v
+
+      - name: dagster definitions validate
+        run: uv run dagster definitions validate -f dagster_project/definitions.py
+
+  gitleaks:
+    name: gitleaks (secret scan)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (full history — gitleaks quét cả lịch sử commit của PR)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

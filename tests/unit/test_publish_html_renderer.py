@@ -15,7 +15,7 @@ from src.intel_bot.publish.html_renderer import (
     render_digest_html,
 )
 
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
 NOW = dt.datetime(2026, 8, 11, 9, 0, 0, tzinfo=dt.UTC)
 
 

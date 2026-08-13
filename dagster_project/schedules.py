@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dagster import (
     AssetSelection,
+    DefaultScheduleStatus,
     build_schedule_from_partitioned_job,
     define_asset_job,
 )
@@ -31,6 +32,14 @@ daily_pipeline_schedule = build_schedule_from_partitioned_job(
     # hour_of_day/minute_of_hour (đã tự verify bằng CheckError, không phải đoán). Múi giờ
     # thật lấy từ `timezone="Asia/Ho_Chi_Minh"` đã khai trong `daily_partitions`
     # (partitions.py) — job dùng đúng partitions_def đó nên lịch tự thừa hưởng múi giờ.
+    #
+    # `default_status=RUNNING` (task 1.10) — trước đây STOPPED có chủ đích, đúng lời ghi ở
+    # `midday_ingest_schedule` bên dưới: "chưa có Dagster daemon production thật". Giờ daemon
+    # đã triển khai thật (docker-compose, xem docs/RUNBOOK.md) — một schedule STOPPED mặc
+    # định sẽ không tự chạy sau khi daemon khởi động lại (DONE WHEN "reboot -> lịch 05:00
+    # chạy không cần can thiệp" sẽ SAI nếu vẫn để STOPPED, người vận hành phải nhớ bật tay
+    # qua UI mỗi lần daemon khởi động lại từ đầu — đúng thứ "cần can thiệp" mà DONE WHEN cấm).
+    default_status=DefaultScheduleStatus.RUNNING,
 )
 
 #: §7.3: "Chỉ raw_* + stg_articles" — bổ sung `raw_github` (task 1.2, chưa tồn tại lúc §7.3
@@ -56,10 +65,10 @@ midday_ingest_schedule = build_schedule_from_partitioned_job(
     name="midday_ingest_schedule",
     hour_of_day=12,
     minute_of_hour=0,
-    # KHÔNG set default_status=RUNNING — giữ đúng quy ước đã có ở daily_pipeline_schedule
-    # (STOPPED mặc định, bật thủ công qua UI/GraphQL khi cần): chưa có Dagster daemon
-    # production thật (docs/PROGRESS.md mục 5C), tự ý đổi quy ước một lịch mà không đổi lịch
-    # kia là không nhất quán.
+    # `default_status=RUNNING` (task 1.10) — cùng lý do đã ghi ở `daily_pipeline_schedule`
+    # phía trên: daemon production giờ đã có thật, giữ 3 lịch nhất quán (cả 3 cùng chạy mặc
+    # định), không còn lý do để lịch này khác lịch 05:00.
+    default_status=DefaultScheduleStatus.RUNNING,
 )
 
 evening_ingest_schedule = build_schedule_from_partitioned_job(
@@ -67,4 +76,5 @@ evening_ingest_schedule = build_schedule_from_partitioned_job(
     name="evening_ingest_schedule",
     hour_of_day=18,
     minute_of_hour=0,
+    default_status=DefaultScheduleStatus.RUNNING,
 )
