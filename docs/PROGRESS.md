@@ -1667,3 +1667,54 @@ UTC), gitleaks **10 giây**. Breakdown từng step (từ log thật, không ph�
 
 Trước khi push MỖI lần sửa, đều tái hiện lỗi + xác nhận fix trên DB tạm cục bộ (drop/create
 `ci_test_tmp`, `alembic upgrade head` từ đầu) — không đoán từ log CI rồi sửa mù.
+
+### 17.6 3 drill cố ý phá CI (DONE WHEN) + bật branch protection — verify thật trên PR #1
+
+Cả 3 drill làm TRÊN nhánh `feature/ci-backfill-pipeline` (push → xác nhận đỏ đúng chỗ qua
+API thật → revert → xác nhận xanh lại), không phải mô phỏng:
+
+1. **Lỗi type cố ý** (`src/intel_bot/config.py`, thêm `_ci_drill_bad_type: int = "not an int"`)
+   — commit `5a1ccf8`. CI đỏ ĐÚNG ở bước `mypy src/`, `ruff check + format --check` (bước
+   trước) vẫn xanh, mọi bước sau `skipped`. Revert ở `67bde31`, xanh lại.
+2. **Secret giả cố ý** (`ci_drill_secret.txt`, 1 access key + 1 secret key kiểu AWS) —
+   commit `a80c885`. Job `gitleaks` đỏ, job `CI` KHÔNG bị ảnh hưởng (2 job độc lập, đúng
+   thiết kế). Phát sinh ngoài dự tính khi revert: `gitleaks-action` quét theo commit RANGE
+   của PR (`--first-parent <base>^..<head>`), không phải chỉ tree hiện tại — xoá file ở
+   commit sau KHÔNG xoá secret khỏi commit đã push trước đó, gitleaks vẫn thấy ở lần scan
+   tiếp theo (xác nhận thật, không suy đoán, thấy CI vẫn đỏ sau khi đã xoá file). Không
+   rewrite lịch sử nhánh PR đã push (rủi ro không cần thiết cho secret giả) — dùng đúng cơ
+   chế `.gitleaksignore` (allowlist theo fingerprint) mà gitleaks hỗ trợ chính thức, KHÔNG
+   nới rule `generic-api-key`/`aws-access-token` cho cả repo. Vòng đầu chỉ allowlist 1
+   fingerprint (bỏ sót fingerprint thứ 2 vì output cục bộ bị `tail` cắt bớt) — CI vẫn đỏ,
+   soi log CI đầy đủ mới thấy đúng 2 fingerprint (2 rule khác nhau khớp 2 dòng khác nhau
+   trong cùng 1 file), thêm nốt fingerprint còn thiếu → xanh (`453c83c`).
+3. **Phá tính lũy đẳng cố ý** (`src/intel_bot/ingest/loader.py::upsert_silver_article`, xoá
+   hẳn mệnh đề `ON CONFLICT (canonical_url) DO UPDATE ...` chỉ còn `INSERT` trần) — commit
+   `1715000`. Tái hiện + xác nhận đỏ CỤC BỘ trước (`UniqueViolation` trên `articles_pkey`)
+   rồi mới push. CI đỏ ĐÚNG ở bước `pytest tests/integration`, bắt bởi **2 test độc lập cùng
+   lúc**: `test_backfill.py::test_backfill_idempotent_and_isolated` (task 1.8, mới viết) VÀ
+   `test_loader.py::test_normalize_partition_three_times_is_idempotent` (có sẵn từ trước) —
+   cùng nguyên nhân gốc. `dagster definitions validate` (bước sau) `skipped` đúng. Revert ở
+   `c92c00c`, diff xác nhận khớp NGUYÊN VĂN bản trước drill (không sót/thừa), xanh lại.
+
+**Branch protection trên `main`** (§17.3) bật qua REST API
+(`PUT /repos/.../branches/main/protection`): `required_status_checks` (strict=true, bắt
+buộc context `CI` + `gitleaks (secret scan)`), `enforce_admins=true` (kể cả admin cũng
+không bypass được), `required_pull_request_reviews` (bắt buộc đi qua PR — ban đầu QUÊN mục
+này, set `null`, chỉ chặn merge-khi-chưa-xanh chứ KHÔNG chặn push thẳng; tự phát hiện lại
+bằng cách ĐỌC LẠI response, thấy `required_pull_request_reviews: null` mới nhận ra thiếu,
+sửa lại với `required_approving_review_count: 0` — bắt buộc qua PR nhưng không cần người
+approve, hợp với repo 1 người), `allow_force_pushes=false`, `allow_deletions=false`.
+
+**Verify KHÔNG chỉ đọc lại config — thử push thẳng thật vào `main`:** checkout nhánh tạm từ
+`origin/main`, tạo 1 commit test vô hại, `git push origin _tmp_protection_test:main` →
+
+```
+remote: error: GH006: Protected branch update failed for refs/heads/main.
+remote: - Changes must be made through a pull request.
+remote: - 2 of 2 required status checks are expected.
+```
+
+Bị từ chối thật, đúng thông điệp mong đợi. Xoá nhánh tạm cục bộ, không có gì lọt vào `main`.
+
+**Task 1.8 + 1.9 — TẤT CẢ DONE WHEN đã verify thật, không còn mục nào "chờ".**
