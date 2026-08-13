@@ -1,42 +1,34 @@
 # Deploy production (task 1.10, PRODUCTION_PLAN §16.1-16.4, §17.2)
 
-Máy production do user chọn: **máy remote Windows, đã cài Docker sẵn** (không phải máy dev
-này — code được copy/kéo sang máy đó, không phải SSH từ đây, xem `docs/PROGRESS.md` mục 18).
-Tài liệu này viết để chạy TRÊN chính máy remote đó.
+Máy production: **chính máy dev này** (quyết định cuối — ban đầu định dùng máy remote Windows
+`113.161.126.100`, SSH vào đó thất bại thật — port không phải sshd, xem `docs/PROGRESS.md`
+mục 18 — user đổi ý, chạy thẳng tại đây thay vì tiếp tục vật lộn với máy remote).
 
-Mọi lệnh `docker compose`/`dbt`/`alembic` ở đây đã tự chạy thật trên máy dev (build image,
-`docker compose up -d`, `docker restart`, `curl` GraphQL xác nhận schedule sống sau restart)
-trước khi viết vào tài liệu — xem `docs/PROGRESS.md` mục 18 để biết bằng chứng cụ thể. Phần
-DUY NHẤT chưa tự verify được (vì không SSH được vào máy remote) là **hành vi reboot toàn bộ
-hệ điều hành** — cơ chế `restart: unless-stopped` của Docker + Task Scheduler ở dưới là cách
-làm chuẩn, đã test từng mảnh, nhưng chưa test được chuỗi "tắt máy thật → bật lại thật" trên
-đúng máy production. Anh cần tự xác nhận bước đó 1 lần sau khi deploy (xem §5).
+Mọi lệnh `docker compose`/`dbt`/`alembic` ở đây đã tự chạy thật trên đúng máy này (build
+image, `docker compose up -d`, `docker restart`, `curl` GraphQL xác nhận schedule sống sau
+restart) — xem `docs/PROGRESS.md` mục 18 để biết bằng chứng cụ thể.
 
 ## 1. Chuẩn bị (một lần)
 
-1. Copy/clone repo sang máy remote.
-2. Tạo `.env` từ `.env.example` — **KHÔNG BAO GIỜ commit `.env` hay copy qua git** (đúng rào
-   chắn task 1.10). Điền `DATABASE_URL`/`POSTGRES_*`/`GIT_PUBLISH_TOKEN`/`GITHUB_TOKEN`/
-   `DEEPSEEK_API_KEY`/`HEARTBEAT_URL`/`TELEGRAM_*`/`LLM_PROVIDER=deepseek` (production, KHÔNG
+1. `.env` đã có sẵn tại đây (máy dev = máy production luôn, không cần copy đi đâu) —
+   **KHÔNG BAO GIỜ commit `.env` hay copy qua git** (đúng rào chắn task 1.10) vẫn áp dụng y
+   hệt dù không phải copy sang máy khác. Điền/đổi `LLM_PROVIDER=deepseek` (production, KHÔNG
    để `mock` — xem gotcha đã ghi ở `docs/PROGRESS.md` mục 5B: `mock` chạy trên bài thật từng
-   lọt vào gold).
-   - `DAGSTER_WEBSERVER_URL` đặt đúng địa chỉ máy này (vd. `http://<ip-máy-remote>:3000`),
-     không để mặc định `localhost` — sensor 1.6 dùng biến này để gắn link "xem run" vào alert
-     Telegram.
-3. Build image:
+   lọt vào gold) — **đây là quyết định có chi phí thật, xác nhận với user trước khi đổi**.
+   `DAGSTER_WEBSERVER_URL` giữ `http://localhost:3000` (đúng vì webserver và trình duyệt xem
+   UI đều trên cùng máy này).
+2. Build image (nếu chưa build hoặc code có đổi):
    ```powershell
    docker compose build dagster-daemon dagster-webserver
    ```
-4. **Bootstrap schema — CHỈ chạy 1 lần trên DB trống** (không phải mỗi lần start container,
-   xem `docker-entrypoint.sh` — entrypoint chỉ `dbt parse`, KHÔNG tự chạy migration):
-   ```powershell
-   docker compose up -d postgres
-   # đợi vài giây cho healthcheck pg_isready pass, rồi:
-   uv run alembic upgrade head
-   ```
-5. Nhánh `gh-pages` (nơi GitHub Pages serve, §12.1) đã tồn tại SẴN trên GitHub (tạo 1 lần lúc
-   phát triển task 1.10, không phụ thuộc máy nào) — `src/intel_bot/publish/git_publish.py` tự
-   `git fetch` + `git worktree add` lúc chạy lần đầu trên máy MỚI, không cần làm gì thêm.
+3. **Bootstrap schema — đã xong sẵn trên máy này** (DB dev = DB production, đã `alembic
+   upgrade head` từ lâu, không phải làm lại). Chỉ cần nhớ: bước này CHỈ chạy 1 lần trên DB
+   trống thật sự, `docker-entrypoint.sh` của container chỉ `dbt parse`, KHÔNG tự chạy
+   migration — nếu sau này đổi sang DB khác (thật sự trống), chạy lại `uv run alembic
+   upgrade head` trước khi start container lần đầu.
+4. Nhánh `gh-pages` (nơi GitHub Pages serve, §12.1) và worktree cục bộ
+   `.gh-pages-worktree/` **đã bootstrap sẵn trên máy này** (làm lúc phát triển task 1.10) —
+   không cần làm gì thêm.
 
 ## 2. Chạy production
 
@@ -47,11 +39,10 @@ docker compose up -d postgres dagster-daemon dagster-webserver
 **KHÔNG chạy `ollama`** (profile `local-llm`, chỉ bật khi thật sự dùng Ollama local — provider
 production là `deepseek` qua cloud API, xem §16.2 lý do khuyến nghị cloud LLM).
 
-Webserver UI: `http://<ip-máy-remote>:3000` — mặc định `docker-compose.yml` bind
-`127.0.0.1:3000` (chỉ máy đó tự truy cập, đúng rào chắn "không expose service không có auth ra
-Internet", cùng tinh thần §19.3 dù đó nói riêng Postgres/Ollama). Xem UI từ xa: SSH tunnel
-(`ssh -L 3000:localhost:3000 <user>@<máy-remote>`) hoặc đổi thành `"3000:3000"` trong
-`docker-compose.yml` nếu chấp nhận rủi ro mở LAN/Internet (tự cân nhắc).
+Webserver UI: `http://localhost:3000` — `docker-compose.yml` bind `127.0.0.1:3000` (chỉ máy
+này tự truy cập, đúng rào chắn "không expose service không có auth ra Internet", cùng tinh
+thần §19.3 dù đó nói riêng Postgres/Ollama — không cần đổi vì đang xem UI ngay trên máy chạy
+nó).
 
 ## 3. Start / stop / xem log — lệnh chính xác cho repo này
 
@@ -75,7 +66,8 @@ chưa có phiên đăng nhập Windows nào, khác Docker Engine trên Linux/sys
 1 Scheduled Task chạy Docker Desktop lúc khởi động máy.
 
 ```powershell
-# Chạy 1 lần, quyền Administrator
+# Chạy 1 lần, quyền Administrator — TỰ chạy tay, agent không tự nâng quyền được (đã thử
+# thật, Register-ScheduledTask báo "Access is denied" khi chạy từ PowerShell không elevated).
 $action = New-ScheduledTaskAction -Execute "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Highest
@@ -93,14 +85,17 @@ trễ khởi động, container có thể chưa kịp tự phục hồi ngay), t
 SAU task trên vài phút:
 
 ```powershell
-$action2 = New-ScheduledTaskAction -Execute "docker" -Argument "compose up -d postgres dagster-daemon dagster-webserver" -WorkingDirectory "D:\industry-intel-bot"
+$action2 = New-ScheduledTaskAction -Execute "docker" -Argument "compose up -d postgres dagster-daemon dagster-webserver" -WorkingDirectory "D:\QUY\industry-intel-bot"
 $trigger2 = New-ScheduledTaskTrigger -AtStartup
 $trigger2.Delay = "PT3M"  # đợi 3 phút cho Docker Desktop khởi động xong hẳn
 Register-ScheduledTask -TaskName "IntelBotComposeUp" -Action $action2 -Trigger $trigger2 -Principal $principal -Description "Dam bao docker compose up sau khi Docker Desktop san sang (task 1.10)"
 ```
 
-**Chưa tự verify được bằng reboot thật** (xem đầu file) — anh tự khởi động lại máy 1 lần sau
-khi deploy, đợi ~5 phút, rồi chạy `docker compose ps` xác nhận cả 3 container đang "Up".
+**Reboot thật — user quyết định KHÔNG cần test** (đã hỏi rõ, xem `docs/PROGRESS.md` mục 18):
+tin cơ chế `restart: unless-stopped` (chuẩn Docker) + 2 Scheduled Task ở trên là đủ, không
+đánh đổi việc ngắt phiên làm việc hiện tại để test một cơ chế đã được verify từng phần
+(container tự sống qua `docker restart`, đăng ký Task Scheduler đã chạy thật — xem ngay
+dưới).
 
 ## 5. §17.2 — vì sao KHÔNG dùng `pipeline.yml` cron trên GitHub Actions
 
