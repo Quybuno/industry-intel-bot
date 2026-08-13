@@ -113,23 +113,35 @@ jobs:
       # build` thủ công trước đó — CI checkout sạch mới lộ ra thứ tự sai này (bắt được thật
       # ở lần chạy CI đầu tiên trên PR #1, không phải suy đoán).
       #
-      # `dbt seed` + `dbt run --select staging` chạy TRƯỚC `dbt compile` vì lý do khác, cũng
-      # bắt được thật trên CI (không phải suy đoán): `models/intermediate/int_articles_deduped.sql`
-      # gọi `run_query()` ngay trong THÂN model (mục đích: log số nhóm content_hash trùng) —
-      # Jinja `{% if execute %}` khiến lệnh này chạy THẬT lúc `dbt compile`, không chỉ lúc
-      # `dbt run`, và nó SELECT từ `gold.stg_articles` — một VIEW dbt tự tạo, KHÔNG nằm trong
-      # migration alembic (alembic chỉ tạo bronze/silver). DB tạm của CI mới migrate xong
-      # chưa có view này → `dbt compile` vỡ "relation does not exist". `dbt seed` +
-      # `dbt run --select staging` chỉ tạo 4 VIEW rỗng + 1 seed tĩnh (< 1s, không phải
-      # `dbt build --full-refresh`, không đụng bronze/silver, KHÔNG vi phạm rào chắn "không
-      # chạy dbt build --full-refresh trên DB thật" — đây là DB tạm của service container,
-      # không phải DB thật). Máy dev không lộ ra vì DB dev đã có sẵn các view này từ những
-      # lần `dbt build` thủ công trước đó trong suốt phiên làm việc.
+      # `dbt seed` + `dbt build` chạy TRƯỚC `dbt compile`/pytest integration vì 2 lý do, cả
+      # 2 đều bắt được thật trên CI (không phải suy đoán):
+      #   1. `models/intermediate/int_articles_deduped.sql` gọi `run_query()` ngay trong THÂN
+      #      model (mục đích: log số nhóm content_hash trùng) — Jinja `{% if execute %}`
+      #      khiến lệnh này chạy THẬT lúc `dbt compile`, không chỉ lúc `dbt run`, và nó SELECT
+      #      từ `gold.stg_articles` — một VIEW dbt tự tạo, KHÔNG nằm trong migration alembic
+      #      (alembic chỉ tạo bronze/silver) → DB tạm mới migrate xong chưa có view này khiến
+      #      `dbt compile` vỡ "relation does not exist".
+      #   2. `pytest tests/integration` (test_alerting.py, test_publish_runner.py,
+      #      test_score_runner.py, test_backfill.py) SELECT/INSERT trực tiếp vào
+      #      `gold.fct_article_score`/`gold.mart_daily_digest`/`gold.mart_pipeline_health`
+      #      qua SQL thô, không qua dbt ref() — những bảng này CHỈ được dbt tạo (materialized
+      #      table/incremental), alembic không biết tới → cùng lỗi "relation does not exist"
+      #      trên DB tạm chưa từng chạy dbt build lần nào.
+      # `--exclude assert_digest_not_empty`: test nghiệp vụ §13.2 (mart_daily_digest phải
+      # >= 5 dòng) ĐÚNG cho production (nhiều ngày cộng dồn), nhưng chắc chắn FAIL ở đây vì
+      # bronze/silver hoàn toàn trống trên DB tạm mới migrate (0 dòng khắp nơi) — không phải
+      # lỗi, chỉ là bối cảnh seeding-schema không áp dụng ngưỡng khối lượng production.
+      # Toàn bộ bước này < 2s (0 dòng bronze/silver để xử lý), KHÔNG phải `--full-refresh`,
+      # và chạy trên DB tạm của service container — không vi phạm rào chắn "không chạy dbt
+      # build --full-refresh trên DB thật". Máy dev không lộ ra 2 vấn đề trên vì DB dev đã có
+      # sẵn toàn bộ bảng/view này từ những lần `dbt build` thủ công trước đó trong phiên.
       - name: dbt parse + dbt compile
         run: |
           uv run dbt parse --project-dir dbt_project --profiles-dir dbt_project
           uv run dbt seed --project-dir dbt_project --profiles-dir dbt_project
-          uv run dbt run --select staging --project-dir dbt_project --profiles-dir dbt_project
+          uv run dbt build --project-dir dbt_project --profiles-dir dbt_project \
+            --vars "{\"run_date\": \"$(date -u +%F)\"}" \
+            --exclude assert_digest_not_empty
           uv run dbt compile --project-dir dbt_project --profiles-dir dbt_project
 
       - name: sqlfluff lint dbt_project/

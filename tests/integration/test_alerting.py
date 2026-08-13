@@ -10,11 +10,14 @@ dải ngày `tests/test_rss_ingest.py`/`tests/test_github_ingest.py` (2000-01-xx
 from __future__ import annotations
 
 import datetime as dt
+import json
+import uuid
 from collections.abc import Iterator
 from decimal import Decimal
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from src.intel_bot.observability.alerting import (
     check_digest_empty,
@@ -115,11 +118,94 @@ def test_load_dbt_vars_has_all_anomaly_thresholds_task_1_4() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _insert_digest_row(connection: sa.Connection, *, score_id: uuid.UUID) -> None:
+    """Chèn 1 dòng `gold.mart_daily_digest` hợp lệ (không qua dbt — mart này KHÔNG có ràng
+    buộc FK/NOT NULL ở tầng DB, chỉ có test dbt `not_null`/`unique` chạy lúc `dbt build`, nên
+    insert thô trực tiếp là an toàn cho mục đích test cô lập này, đúng khuôn
+    `_insert_health_row` ở trên)."""
+    connection.execute(
+        sa.text(
+            """
+            INSERT INTO gold.mart_daily_digest
+                (score_id, article_id, canonical_url, title, snippet, industry_tags,
+                 source_id, source_domain, source_tier, published_at, published_at_imputed,
+                 first_seen_at, credibility_blended, importance, practicality, depth,
+                 recency_boost, composite_score, summary_vi, why_it_matters_vi,
+                 industry_group, digest_built_at)
+            VALUES
+                (:score_id, :article_id, :canonical_url, :title, :snippet, :industry_tags,
+                 :source_id, :source_domain, :source_tier, :published_at, false,
+                 :first_seen_at, :credibility_blended, :importance, :practicality, :depth,
+                 :recency_boost, :composite_score, :summary_vi, :why_it_matters_vi,
+                 :industry_group, now())
+            """
+        ).bindparams(
+            sa.bindparam("score_id", type_=postgresql.UUID),
+            sa.bindparam("article_id", type_=postgresql.UUID),
+            sa.bindparam("industry_tags", type_=postgresql.ARRAY(sa.Text())),
+            sa.bindparam("summary_vi", type_=postgresql.JSONB),
+        ),
+        {
+            "score_id": score_id,
+            "article_id": uuid.uuid4(),
+            "canonical_url": "https://fixture.test/alerting/digest-row",
+            "title": "Bài test cho check_digest_empty",
+            "snippet": "Snippet test cho check_digest_empty.",
+            "industry_tags": ["ai"],
+            "source_id": "test_alerting_source",
+            "source_domain": "fixture.test",
+            "source_tier": 1,
+            "published_at": dt.datetime(2025, 1, 1, tzinfo=dt.UTC),
+            "first_seen_at": dt.datetime(2025, 1, 1, tzinfo=dt.UTC),
+            "credibility_blended": 5.0,
+            "importance": 5,
+            "practicality": 5,
+            "depth": 5,
+            "recency_boost": 0.0,
+            "composite_score": 5.0,
+            "summary_vi": json.dumps(
+                [
+                    "Bullet test 1.",
+                    "Bullet test 2.",
+                    "Bullet test 3.",
+                    "Bullet test 4.",
+                    "Bullet test 5.",
+                ]
+            ),
+            "why_it_matters_vi": "Lý do test.",
+            "industry_group": "ai",
+        },
+    )
+    connection.commit()
+
+
+def _cleanup_digest_row(connection: sa.Connection, *, score_id: uuid.UUID) -> None:
+    connection.execute(
+        sa.text(
+            "DELETE FROM gold.mart_daily_digest WHERE score_id = :score_id"
+        ).bindparams(sa.bindparam("score_id", type_=postgresql.UUID)),
+        {"score_id": score_id},
+    )
+    connection.commit()
+
+
+@pytest.fixture()
+def digest_row(db_connection: sa.Connection) -> Iterator[sa.Connection]:
+    """Tự chèn + dọn dẹp 1 dòng digest riêng — KHÔNG dựa vào dữ liệu thật có sẵn của repo
+    (khuôn cũ chỉ đúng cờ khi chạy trên máy dev đã tích luỹ dữ liệu thật, vỡ thật trên DB CI
+    hoàn toàn trống — bắt được ở task 1.9, không phải suy đoán). Đúng đúng docstring module
+    đã ghi từ đầu ("chèn thẳng dòng test... dọn dẹp ở cuối") nhưng test này trước đó chưa
+    làm theo — sửa lại cho khớp."""
+    score_id = uuid.uuid4()
+    _insert_digest_row(db_connection, score_id=score_id)
+    yield db_connection
+    _cleanup_digest_row(db_connection, score_id=score_id)
+
+
 def test_check_digest_empty_returns_none_when_digest_has_rows(
-    db_connection: sa.Connection,
+    digest_row: sa.Connection,
 ) -> None:
-    """digest thật của repo (dữ liệu 2026-08 đã có từ các task trước) không rỗng."""
-    condition = check_digest_empty(db_connection)
+    condition = check_digest_empty(digest_row)
     assert condition is None
 
 

@@ -115,25 +115,38 @@ def _fixture_source(day: dt.date) -> list[SourceConfig]:
     ]
 
 
-def _dbt_build(select: list[str], run_date: dt.date) -> None:
+def _dbt_build(
+    select: list[str], run_date: dt.date, *, exclude: list[str] | None = None
+) -> None:
     """`Console Windows mặc định cp1252` (AGENTS.md mục 8) — dbt tự đọc file `.sql` có
     comment tiếng Việt lúc build manifest, vỡ với `UnicodeDecodeError` nếu subprocess không
-    được ép UTF-8 tường minh (gặp thật khi viết test này, không phải suy đoán)."""
+    được ép UTF-8 tường minh (gặp thật khi viết test này, không phải suy đoán).
+
+    `exclude` — dùng để loại `assert_digest_not_empty` (§13.2, ngưỡng >= 5 dòng) khỏi build
+    mart trong TEST này: test backfill cố tình chỉ ingest vài bài mock cho MỘT partition cô
+    lập, không đại diện cho khối lượng dữ liệu thật — assert đó đúng khi chạy production
+    (nhiều ngày cộng dồn), SAI bối cảnh khi áp cho một partition test đơn lẻ. Bắt được thật
+    khi chạy trên DB CI hoàn toàn trống (không phải suy đoán) — trên máy dev, digest luôn có
+    sẵn dữ liệu thật tích luỹ từ các task trước nên không bao giờ lộ ra.
+    """
     vars_json = json.dumps({"run_date": run_date.isoformat()})
     env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+    cmd = [
+        "dbt",
+        "build",
+        "--select",
+        *select,
+        "--vars",
+        vars_json,
+        "--project-dir",
+        str(DBT_PROJECT_DIR),
+        "--profiles-dir",
+        str(DBT_PROJECT_DIR),
+    ]
+    if exclude:
+        cmd += ["--exclude", *exclude]
     result = subprocess.run(
-        [
-            "dbt",
-            "build",
-            "--select",
-            *select,
-            "--vars",
-            vars_json,
-            "--project-dir",
-            str(DBT_PROJECT_DIR),
-            "--profiles-dir",
-            str(DBT_PROJECT_DIR),
-        ],
+        cmd,
         capture_output=True,
         text=True,
         env=env,
@@ -199,7 +212,11 @@ def _run_full_pipeline_for_partition(connection: sa.Connection, day: dt.date) ->
             result=result,
         )
 
-    _dbt_build(["mart_daily_digest", "mart_pipeline_health"], day)
+    _dbt_build(
+        ["mart_daily_digest", "mart_pipeline_health"],
+        day,
+        exclude=["assert_digest_not_empty"],
+    )
 
 
 def _snapshot_counts(connection: sa.Connection, day: dt.date) -> dict[str, int]:
