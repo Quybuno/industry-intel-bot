@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Industry Intel Digest — 13/08/2026</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --bg-card: #171d2c;
+    --border: #2a3142;
+    --text: #e7ebf3;
+    --text-dim: #9aa4b8;
+    --accent: #5b9dff;
+    --accent-2: #35d0a1;
+    --tier1: #35d0a1;
+    --tier2: #f2b84b;
+    --tier-other: #9aa4b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header.site-header {
+    padding: 1.5rem 1rem 1rem;
+    border-bottom: 1px solid var(--border);
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  header.site-header h1 {
+    margin: 0 0 0.4rem;
+    font-size: 1.5rem;
+  }
+  header.site-header .meta {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+  nav.section-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  nav.section-nav a {
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  section.industry-section {
+    margin-bottom: 2rem;
+  }
+  section.industry-section h2 {
+    font-size: 1.15rem;
+    border-left: 4px solid var(--accent);
+    padding-left: 0.6rem;
+    margin: 0 0 0.75rem;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+  @media (min-width: 640px) {
+    .card-grid { grid-template-columns: 1fr 1fr; }
+  }
+  article.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  article.card.is-read {
+    opacity: 0.55;
+  }
+  .card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+  }
+  .badge {
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    background: #232b3d;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .badge.tier-1 { color: var(--tier1); border: 1px solid var(--tier1); }
+  .badge.tier-2 { color: var(--tier2); border: 1px solid var(--tier2); }
+  .badge.tier-other { color: var(--tier-other); border: 1px solid var(--tier-other); }
+  .card-title a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 1.02rem;
+    font-weight: 600;
+  }
+  .card-title a:hover { color: var(--accent); }
+  .score-bar-track {
+    background: #232b3d;
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  .score-label {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+  ul.summary-bullets {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.92rem;
+  }
+  ul.summary-bullets li { margin-bottom: 0.25rem; }
+  .why-it-matters {
+    font-size: 0.88rem;
+    color: var(--text-dim);
+    border-top: 1px dashed var(--border);
+    padding-top: 0.5rem;
+  }
+  .why-it-matters strong { color: var(--text); }
+  .card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: auto;
+    font-size: 0.82rem;
+  }
+  .read-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  button.copy-id-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  button.copy-id-btn:hover { color: var(--text); border-color: var(--accent); }
+  footer.site-footer {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--border);
+  }
+  footer.site-footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <h1>Industry Intel Digest</h1>
+  <div class="meta">
+    Ngày: 13/08/2026 &middot;
+    Số bài: 15 &middot;
+    Cập nhật lúc: 13/08/2026 04:20 (giờ Việt Nam)
+  </div>
+</header>
+<main>
+  <nav class="section-nav">
+    <a href="#section-1">AI (7)</a>
+    <a href="#section-2">Construction (2)</a>
+    <a href="#section-3">HVAC (3)</a>
+    <a href="#section-4">Manufacturing (2)</a>
+    <a href="#section-5">IoT (1)</a>
+  </nav>
+
+  <section class="industry-section" id="section-1">
+    <h2>AI</h2>
+    <div class="card-grid">
+      <article class="card" data-article-id="849e3bb3-0984-5477-b7fa-d06064b0bac3">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">10/08/2026 00:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/zapier" target="_blank" rel="noopener noreferrer">How Zapier transformed core marketing processes with ChatGPT Work</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 67.63636363636364%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 7.4</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>Zapier dùng ChatGPT Work để giảm tỷ lệ rời bỏ trong kênh dẫn khách.</li>
+          <li>Ứng dụng ChatGPT Work để xây dựng tài sản chiến dịch marketing.</li>
+          <li>Tự động hóa báo cáo với ChatGPT Work giúp tiết kiệm thời gian.</li>
+          <li>Nhóm marketing doanh nghiệp tại Zapier áp dụng ChatGPT Work hiệu quả.</li>
+          <li>ChatGPT Work giúp tối ưu quy trình marketing cốt lõi của Zapier.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết cho thấy ứng dụng thực tế của AI trong marketing, giúp doanh nghiệp tối ưu chi phí và thời gian, đáng chú ý vì Zapier là nền tảng tự động hóa hàng đầu.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="849e3bb3-0984-5477-b7fa-d06064b0bac3">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="849e3bb3-0984-5477-b7fa-d06064b0bac3">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="7163adba-032e-5f44-ab4f-5126615aba3e">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">06/08/2026 10:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/improving-gpt-5-6-sol-in-chatgpt" target="_blank" rel="noopener noreferrer">Improving GPT‑5.6 Sol in ChatGPT—and expanding access to GPT-5.6 Luna for free users</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 65.27272727272727%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 7.2</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>GPT-5.6 Sol trong ChatGPT được cải thiện về độ chính xác và nhất quán.</li>
+          <li>Người dùng miễn phí được mở rộng quyền truy cập vào GPT-5.6 Luna.</li>
+          <li>GPT-5.6 Luna hỗ trợ trò chuyện không giới hạn cho các cuộc hội thoại hằng ngày.</li>
+          <li>Các nâng cấp này giúp nâng cao trải nghiệm AI cho người dùng phổ thông.</li>
+          <li>OpenAI tiếp tục mở rộng quyền tiếp cận công nghệ AI tân tiến.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Sự cải thiện và mở rộng truy cập cho thấy các công ty AI đang cạnh tranh khốc liệt, đồng thời phổ cập công nghệ đến nhiều người hơn, tác động trực tiếp đến chiến lược sản phẩm của đối thủ.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="7163adba-032e-5f44-ab4f-5126615aba3e">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="7163adba-032e-5f44-ab4f-5126615aba3e">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="8d149500-4152-54bc-865a-8d3a278daf7e">
+        <div class="card-badges">
+          <span class="badge">artificialintelligence-news.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">11/08/2026 07:05</span>
+        </div>
+        <h3 class="card-title"><a href="https://artificialintelligence-news.com/news/how-ai-is-changing-the-vulnerability-response-timeline" target="_blank" rel="noopener noreferrer">How AI is changing the vulnerability response timeline</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 56.36363636363637%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.2</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>AI hỗ trợ nhà nghiên cứu bảo mật phân tích mã và hành vi bất thường.</li>
+          <li>Công nghệ AI giúp phát hiện lỗ hổng mà công cụ truyền thống bỏ sót.</li>
+          <li>Áp lực xử lý lỗ hổng zero-day ngày càng lớn.</li>
+          <li>Nghiên cứu Minimus xem xét thành phần container và hồ sơ phụ thuộc.</li>
+          <li>Tốc độ rebuild và phân tích nhanh hơn rút ngắn thời gian phản hồi.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết cho thấy AI đang thay đổi cách ứng phó lỗ hổng bảo mật, giúp doanh nghiệp giảm thiểu rủi ro zero-day và tối ưu quy trình vá lỗi.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="8d149500-4152-54bc-865a-8d3a278daf7e">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="8d149500-4152-54bc-865a-8d3a278daf7e">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="32a2796e-c3f7-5594-a374-7b4ae8c078ba">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">06/08/2026 00:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/how-the-world-is-putting-chatgpt-to-work" target="_blank" rel="noopener noreferrer">From asking to doing: How the world is putting ChatGPT to work</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 56.36363636363637%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.2</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>OpenAI Signals công bố dữ liệu mới về cách dùng ChatGPT toàn cầu.</li>
+          <li>Số liệu theo quốc gia cho thấy mức độ chấp nhận và xu hướng sử dụng.</li>
+          <li>Người dùng đang chuyển từ hỏi đáp sang thực hiện tác vụ thực tế.</li>
+          <li>Hành vi người dùng thay đổi rõ rệt qua các giai đoạn khác nhau.</li>
+          <li>Doanh nghiệp có thể dùng dữ liệu này để tối ưu chiến lược AI.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết giúp doanh nghiệp và nhà phát triển hiểu rõ xu hướng áp dụng ChatGPT tại từng thị trường, từ đó điều chỉnh chiến lược sản phẩm và tiếp cận người dùng hiệu quả hơn.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="32a2796e-c3f7-5594-a374-7b4ae8c078ba">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="32a2796e-c3f7-5594-a374-7b4ae8c078ba">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="9450f260-d7c8-54c5-9330-4b1bb6c87ae2">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">10/08/2026 00:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/premium-seats-chatgpt-business" target="_blank" rel="noopener noreferrer">Premium seats are coming to ChatGPT Business</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 56.36363636363637%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.2</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>ChatGPT Business sắp ra mắt gói ghế Premium dành cho doanh nghiệp.</li>
+          <li>Đăng ký trước ngày 20/8 để nhận 100 USD tín dụng workspace.</li>
+          <li>Gói Premium mở khóa mức sử dụng cao hơn cho các tác vụ nặng.</li>
+          <li>Ưu đãi nhắm đến đội nhóm có nhu cầu xử lý khối lượng lớn.</li>
+          <li>Động thái mở rộng phân khúc khách hàng doanh nghiệp của OpenAI.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Tin này cho thấy OpenAI đang tăng cường khai thác phân khúc doanh nghiệp, với ưu đãi hấp dẫn để thúc đẩy áp dụng gói cao cấp. Các công ty phụ thuộc vào AI có thể cân nhắc nâng cấp để tối ưu hiệu suất, nhưng cũng cần đánh giá chi phí và nhu cầu thực tế.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="9450f260-d7c8-54c5-9330-4b1bb6c87ae2">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="9450f260-d7c8-54c5-9330-4b1bb6c87ae2">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="c6320343-0550-5053-bfbd-edc2655e8832">
+        <div class="card-badges">
+          <span class="badge">artificialintelligence-news.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">11/08/2026 10:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://artificialintelligence-news.com/news/novo-nordisk-ai-drug-discovery-aws" target="_blank" rel="noopener noreferrer">Novo Nordisk and AWS bring agentic AI into drug discovery</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 54.36363636363637%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.0</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>Novo Nordisk mở rộng ứng dụng AI của AWS trong khám phá thuốc</li>
+          <li>Sử dụng agent AI để xác định mục tiêu và thiết kế liệu pháp</li>
+          <li>AWS trở thành nhà cung cấp đám mây ưu tiên và đối tác AI chiến lược</li>
+          <li>Hai bên lập trung tâm đổi mới chung tại London</li>
+          <li>Thỏa thuận thúc đẩy tự động hóa quy trình nghiên cứu</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Sự hợp tác này cho thấy xu hướng ứng dụng AI tác nhân vào dược phẩm, có thể đẩy nhanh quá trình nghiên cứu và phát triển thuốc, đồng thời tạo lợi thế cạnh tranh cho các hãng nắm bắt công nghệ.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="c6320343-0550-5053-bfbd-edc2655e8832">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="c6320343-0550-5053-bfbd-edc2655e8832">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="27da9be7-3152-5f01-aec4-51ff0c39c805">
+        <div class="card-badges">
+          <span class="badge">databricks.com</span>
+          <span class="badge tier-2">Tier 2</span>
+          <span class="badge">11/08/2026 23:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://databricks.com/blog/taking-auto-cdc-next-level-solving-hardest-real-world-use-cases" target="_blank" rel="noopener noreferrer">Taking AUTO CDC to the next level: Solving the hardest real-world use cases</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 47.63636363636363%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 5.2</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>Bài viết giới thiệu giải pháp tự động hóa CDC trên Spark, xử lý các tình huống thực tế khó.</li>
+          <li>Trình bày cách vượt qua thách thức đồng bộ dữ liệu thay đổi từ nhiều nguồn.</li>
+          <li>Nhấn mạnh việc tối ưu hiệu năng và độ tin cậy khi triển khai CDC quy mô lớn.</li>
+          <li>Đề cập đến các kỹ thuật xử lý schema evolution và dữ liệu phức tạp.</li>
+          <li>Chia sẻ kinh nghiệm từ thực tế để áp dụng AUTO CDC hiệu quả hơn.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Với sự phổ biến của dữ liệu streaming và đồng bộ thời gian thực, tự động hóa CDC giúp giảm tải kỹ thuật, tăng tốc phát triển pipeline, và là kỹ năng quan trọng cho kỹ sư dữ liệu.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="27da9be7-3152-5f01-aec4-51ff0c39c805">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="27da9be7-3152-5f01-aec4-51ff0c39c805">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+    </div>
+  </section>
+  <section class="industry-section" id="section-2">
+    <h2>Construction</h2>
+    <div class="card-grid">
+      <article class="card" data-article-id="6ec1b209-0dc6-58b7-8305-edffcdfdbf95">
+        <div class="card-badges">
+          <span class="badge">manufacturingdive.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">10/08/2026 15:39</span>
+        </div>
+        <h3 class="card-title"><a href="https://manufacturingdive.com/news/spacex-to-invest-16b-first-phase-terafab-project-grimes-county-texas/827422" target="_blank" rel="noopener noreferrer">SpaceX to invest $16.8B on first phase of Terafab project</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 59.63636363636363%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.6</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>SpaceX đầu tư 16,8 tỷ USD cho giai đoạn một của dự án Terafab.</li>
+          <li>Dự kiến khởi công xây dựng trong năm nay tại Texas.</li>
+          <li>Giai đoạn đầu sẽ tạo ra 3.000 việc làm mới.</li>
+          <li>Bang Texas cấp 30 triệu USD hỗ trợ cho dự án.</li>
+          <li>Đây là khoản đầu tư lớn thúc đẩy cơ sở hạ tầng không gian.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết phản ánh xu hướng đầu tư lớn vào hạ tầng vũ trụ tư nhân, tạo việc làm và thúc đẩy kinh tế địa phương, đồng thời cho thấy sự cạnh tranh trong lĩnh vực công nghiệp không gian tại Mỹ.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="6ec1b209-0dc6-58b7-8305-edffcdfdbf95">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="6ec1b209-0dc6-58b7-8305-edffcdfdbf95">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="277e39a2-5332-51ac-b6b0-a400598b4d79">
+        <div class="card-badges">
+          <span class="badge">constructiondive.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">11/08/2026 13:46</span>
+        </div>
+        <h3 class="card-title"><a href="https://constructiondive.com/news/ballys-chicago-casino-build-slows-gambling/827536" target="_blank" rel="noopener noreferrer">Bally’s slows $1.7B casino build after Chicago expands gambling rules</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 53.45454545454545%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 5.9</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>Bally&#39;s tạm hoãn xây dựng casino 1,7 tỷ USD tại Chicago.</li>
+          <li>Thành phố mở rộng quy định cờ bạc, cho phép máy đặt cược ở nơi khác.</li>
+          <li>Bally&#39;s cho rằng vi phạm Thỏa thuận Cộng đồng Chủ nhà 2022.</li>
+          <li>Hãng phản đối quyết định và có thể khởi kiện.</li>
+          <li>Dự án có nguy cơ chậm tiến độ do tranh chấp.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết cho thấy mâu thuẫn giữa nhà đầu tư casino và chính quyền địa phương, ảnh hưởng đến tiến độ dự án lớn và môi trường kinh doanh ngành giải trí.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="277e39a2-5332-51ac-b6b0-a400598b4d79">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="277e39a2-5332-51ac-b6b0-a400598b4d79">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+    </div>
+  </section>
+  <section class="industry-section" id="section-3">
+    <h2>HVAC</h2>
+    <div class="card-grid">
+      <article class="card" data-article-id="65912a3d-e17f-5c47-ba05-37bc2164a74d">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">11/08/2026 10:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/daybreak-models-are-now-available-on-aws" target="_blank" rel="noopener noreferrer">Daybreak models are now available on AWS</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 58.90909090909091%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.5</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>OpenAI hợp tác với AWS để đưa mô hình Daybreak lên Amazon Bedrock.</li>
+          <li>Daybreak cung cấp khả năng an ninh mạng cho quy trình bảo mật doanh nghiệp.</li>
+          <li>Khách hàng AWS có thể truy cập Daybreak qua nền tảng Bedrock.</li>
+          <li>Tích hợp này giúp tự động hóa và tăng cường hiệu quả phòng thủ.</li>
+          <li>Giải pháp AI an ninh tiên tiến dành cho môi trường doanh nghiệp.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Việc tích hợp Daybreak vào AWS Bedrock giúp doanh nghiệp dễ dàng sử dụng AI tiên tiến để tăng cường an ninh mạng, tự động hóa quy trình bảo mật mà không cần hạ tầng riêng, từ đó nâng cao khả năng phòng thủ trước các mối đe dọa ngày càng phức tạp.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="65912a3d-e17f-5c47-ba05-37bc2164a74d">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="65912a3d-e17f-5c47-ba05-37bc2164a74d">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="61370ddf-9046-5ead-a676-7dd77c62b3a9">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">10/08/2026 10:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/expanding-daybreak-as-the-cyber-defense-window-narrows" target="_blank" rel="noopener noreferrer">Expanding Daybreak as the Cyber Defense Window Narrows</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 56.54545454545455%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.2</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>OpenAI ra mắt GPT-5.6-Cyber, mô hình chuyên về an ninh mạng.</li>
+          <li>Mô hình có sẵn qua Daybreak Red cho nghiên cứu lỗ hổng.</li>
+          <li>Hỗ trợ kiểm thử bảo mật và xác thực khai thác.</li>
+          <li>Chỉ dành cho người dùng được ủy quyền nhằm giảm rủi ro.</li>
+          <li>Đáp ứng nhu cầu phòng thủ khi cửa sổ tấn công thu hẹp.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết nhấn mạnh bước tiến AI trong an ninh mạng, giúp tổ chức tăng tốc phát hiện lỗ hổng khi thời gian phản ứng ngày càng eo hẹp.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="61370ddf-9046-5ead-a676-7dd77c62b3a9">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="61370ddf-9046-5ead-a676-7dd77c62b3a9">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="38aad15f-96c9-57d9-97a3-90dfb05ebf2b">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">11/08/2026 10:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/testing-ads-in-chatgpt" target="_blank" rel="noopener noreferrer">Testing ads in ChatGPT</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 51.09090909090909%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 5.6</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>OpenAI thử nghiệm quảng cáo trong ChatGPT.</li>
+          <li>Mục tiêu hỗ trợ duy trì truy cập miễn phí.</li>
+          <li>Quảng cáo được dán nhãn rõ ràng, tránh nhầm lẫn.</li>
+          <li>Câu trả lời không bị ảnh hưởng bởi quảng cáo.</li>
+          <li>Có kiểm soát của người dùng và bảo vệ quyền riêng tư.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Việc thử nghiệm quảng cáo trong ChatGPT có thể định hình mô hình doanh thu AI, ảnh hưởng đến trải nghiệm người dùng và mở ra tranh luận về độ tin cậy cũng như quyền riêng tư.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="38aad15f-96c9-57d9-97a3-90dfb05ebf2b">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="38aad15f-96c9-57d9-97a3-90dfb05ebf2b">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+    </div>
+  </section>
+  <section class="industry-section" id="section-4">
+    <h2>Manufacturing</h2>
+    <div class="card-grid">
+      <article class="card" data-article-id="fc0a62a3-b259-5ad9-a22f-614442d33694">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">10/08/2026 00:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/virgin-atlantic/chatgpt-work" target="_blank" rel="noopener noreferrer">Virgin Atlantic sharpens customer journeys with ChatGPT Work</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 56.18181818181818%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.2</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>Hãng hàng không Virgin Atlantic ứng dụng ChatGPT Work để tăng tốc nghiên cứu và lập kế hoạch sản phẩm.</li>
+          <li>Công cụ giúp kết nối các tín hiệu từ hành trình khách hàng, hỗ trợ ra quyết định nhanh hơn.</li>
+          <li>ChatGPT Work được dùng để rút ngắn thời gian nghiên cứu và tối ưu hóa trải nghiệm khách hàng.</li>
+          <li>Đội ngũ Virgin Atlantic sử dụng AI tạo sinh để phân tích dữ liệu xuyên suốt hành trình khách hàng.</li>
+          <li>Ứng dụng này nằm trong xu hướng áp dụng AI trong ngành hàng không để cải thiện vận hành.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết cho thấy các hãng hàng không đang áp dụng AI tạo sinh không chỉ cho chatbot mà còn cho nghiên cứu và ra quyết định chiến lược, mở ra hướng cạnh tranh mới dựa trên dữ liệu khách hàng.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="fc0a62a3-b259-5ad9-a22f-614442d33694">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="fc0a62a3-b259-5ad9-a22f-614442d33694">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+      <article class="card" data-article-id="3d3cf225-c199-548c-a849-22eec3fbc5ee">
+        <div class="card-badges">
+          <span class="badge">openai.com</span>
+          <span class="badge tier-1">Tier 1</span>
+          <span class="badge">10/08/2026 17:00</span>
+        </div>
+        <h3 class="card-title"><a href="https://openai.com/index/building-an-ai-native-finance-function" target="_blank" rel="noopener noreferrer">What building an AI-native finance function taught me</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 55.81818181818182%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.1</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>Tự động hóa dự báo tài chính bằng AI giúp phân tích chính xác và kịp thời hơn.</li>
+          <li>AI tăng cường kiểm soát nội bộ, phát hiện rủi ro và gian lận hiệu quả.</li>
+          <li>Đo lường ROI của AI rõ ràng, gắn với các chỉ số tài chính cụ thể.</li>
+          <li>Dữ liệu sạch và hạ tầng vững chắc là nền tảng để triển khai AI thành công.</li>
+          <li>Con người và AI cộng tác, nâng cao năng suất thay vì thay thế hoàn toàn.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết chia sẻ kinh nghiệm thực tế từ CFO OpenAI, giúp các nhà lãnh đạo tài chính hiểu cách áp dụng AI hiệu quả để tối ưu vận hành, kiểm soát rủi ro và tạo lợi thế cạnh tranh trong kỷ nguyên số.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="3d3cf225-c199-548c-a849-22eec3fbc5ee">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="3d3cf225-c199-548c-a849-22eec3fbc5ee">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+    </div>
+  </section>
+  <section class="industry-section" id="section-5">
+    <h2>IoT</h2>
+    <div class="card-grid">
+      <article class="card" data-article-id="2d1adbd2-b5b4-587e-8f90-408f3f599fe1">
+        <div class="card-badges">
+          <span class="badge">databricks.com</span>
+          <span class="badge tier-2">Tier 2</span>
+          <span class="badge">07/08/2026 11:50</span>
+        </div>
+        <h3 class="card-title"><a href="https://databricks.com/blog/managing-ai-coding-costs-scale" target="_blank" rel="noopener noreferrer">Managing AI Coding Costs at Scale</a></h3>
+        <div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" style="width: 57.63636363636363%;"></div>
+          </div>
+          <div class="score-label">Điểm tổng hợp: 6.3</div>
+        </div>
+        <ul class="summary-bullets">
+          <li>Công cụ AI coding mang lại giá trị lớn, nhưng chi phí mở rộng là thách thức.</li>
+          <li>Databricks đã áp dụng agentic coding và đo lường hiệu quả rõ rệt.</li>
+          <li>Quản lý chi phí đòi hỏi theo dõi sát sao việc sử dụng ở quy mô lớn.</li>
+          <li>Cần tối ưu hóa chọn mô hình để cân bằng chi phí và năng suất.</li>
+          <li>Thiết lập hệ thống giám sát, phân bổ ngân sách cho AI coding.</li>
+        </ul>
+        <p class="why-it-matters"><strong>Tại sao quan trọng:</strong> Bài viết cung cấp bài học thực tế về kiểm soát chi phí AI coding tại quy mô lớn, giúp doanh nghiệp tránh vượt ngân sách và tận dụng tối đa giá trị từ công nghệ này.</p>
+        <div class="card-actions">
+          <label class="read-toggle">
+            <input type="checkbox" class="read-checkbox" data-article-id="2d1adbd2-b5b4-587e-8f90-408f3f599fe1">
+            Đã đọc
+          </label>
+          <button type="button" class="copy-id-btn" data-article-id="2d1adbd2-b5b4-587e-8f90-408f3f599fe1">Sao chép ID phản hồi</button>
+        </div>
+      </article>
+    </div>
+  </section>
+</main>
+<footer class="site-footer">
+  <p>Tóm tắt và đánh giá trên trang này do AI sinh tự động — vui lòng đọc bài gốc trước khi
+  trích dẫn hoặc ra quyết định. Trang không đăng lại toàn văn nội dung gốc, chỉ tiêu đề,
+  liên kết, và tóm tắt do hệ thống sinh.</p>
+  <p>Mã nguồn: <a href="https://github.com/quybuno/industry-intel-bot" target="_blank" rel="noopener noreferrer">https://github.com/quybuno/industry-intel-bot</a></p>
+  <p>Phản hồi: bấm "Sao chép ID phản hồi" trên bài muốn góp ý, dán vào issue hoặc gửi trực
+  tiếp — Phase 0 chưa có form thu thập tự động.</p>
+</footer>
+<script>
+(function () {
+  "use strict";
+  var STORAGE_KEY = "intelBotReadArticles";
+
+  function loadReadIds() {
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveReadIds(ids) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    } catch (err) {
+      /* localStorage không dùng được (chế độ riêng tư, quota) — bỏ qua, không chặn trang. */
+    }
+  }
+
+  function applyReadState(checkbox, isRead) {
+    checkbox.checked = isRead;
+    var card = checkbox.closest(".card");
+    if (card) {
+      card.classList.toggle("is-read", isRead);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var readIds = loadReadIds();
+
+    var checkboxes = document.querySelectorAll(".read-checkbox");
+    checkboxes.forEach(function (checkbox) {
+      var articleId = checkbox.getAttribute("data-article-id");
+      applyReadState(checkbox, Boolean(readIds[articleId]));
+      checkbox.addEventListener("change", function () {
+        readIds[articleId] = checkbox.checked;
+        saveReadIds(readIds);
+        applyReadState(checkbox, checkbox.checked);
+      });
+    });
+
+    var copyButtons = document.querySelectorAll(".copy-id-btn");
+    copyButtons.forEach(function (button) {
+      var originalLabel = button.textContent;
+      button.addEventListener("click", function () {
+        var articleId = button.getAttribute("data-article-id");
+        var done = function () {
+          button.textContent = "Đã sao chép!";
+          window.setTimeout(function () {
+            button.textContent = originalLabel;
+          }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(articleId).then(done, function () {
+            window.prompt("Sao chép article_id:", articleId);
+          });
+        } else {
+          window.prompt("Sao chép article_id:", articleId);
+        }
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
