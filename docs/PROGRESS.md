@@ -1588,21 +1588,82 @@ Tổng ước tính runner CI (không tính setup Python/uv + cold cache): dư�
 `docker run --rm zricethezav/gitleaks:latest git -v .`): quét 25 commit, 1.77MB, **no leaks
 found** — PR đầu tiên sẽ xanh ngay, không có secret nào lộ trong lịch sử hiện tại.
 
-### 17.5 CÒN LẠI — CHẶN BỞI GITHUB PAT (chưa có tính tới lúc viết đoạn này)
+### 17.5 PAT + PR thật + 4 lỗi CI thật tìm được — chỉ lộ ra trên checkout sạch, không lộ ở
+máy dev (đã tích luỹ state qua cả phiên làm việc)
 
-User đã chọn: tự điền PAT (scope `repo`+`workflow`+`admin`) vào `.env`, tôi dùng `gh`/API để
-làm phần còn lại. Tính tới lúc viết đoạn này: `.env` CHƯA có PAT (`GIT_PUBLISH_TOKEN` hiện
-có trong `.env`/`config.py` là biến RIÊNG, scope hẹp hơn nhiều — `contents:write`, dùng cho
-publish docs-site, KHÔNG dùng chung cho việc này). `gh` CLI cũng CHƯA cài trong môi trường
-này (`gh: command not found`) — cần cài hoặc gọi thẳng REST API bằng token khi có.
+User điền PAT (fine-grained, `repo` industry-intel-bot) vào `.env` biến `GITHUB_TOKEN` (biến
+đã có sẵn tên, trước đó dành cho GitHub Search fetcher task 1.2, giờ dùng chung). 2 vòng sửa
+quyền PAT trước khi push được — ghi lại vì dễ lặp lại nhầm lần sau:
+1. Thiếu quyền → `403 Permission denied` khi push dù `/repos/.../permissions` báo
+   `admin:true, push:true` — vì fine-grained PAT có mô hình quyền RIÊNG cho từng token, độc
+   lập với quyền collaborator của tài khoản. Cần bật tường minh Contents/Pull requests/
+   Administration ở trang sửa token.
+2. Vẫn bị chặn → `refusing to allow a Personal Access Token to create or update workflow
+   .github/workflows/ci.yml without workflow scope` — vì nhánh có sửa file trong
+   `.github/workflows/`, quyền **Workflows** (khác **Actions** — dễ nhầm, Actions chỉ quản
+   lý workflow *runs*) mới cho phép việc này.
 
-Việc còn lại, tất cả phụ thuộc PAT:
-- Push nhánh, mở PR thật vào `main`, xác nhận CI chạy đủ 9 step + gitleaks, tất cả xanh
-- Cố ý push lỗi type → xác nhận CI đỏ đúng bước mypy → revert
-- Cố ý push secret giả → xác nhận gitleaks đỏ → revert
-- Cố ý phá tính lũy đẳng (đổi `ON CONFLICT` thành `INSERT` trần ở một chỗ trong
-  `loader.py`/`bronze.py`/tương tự) → xác nhận `test_backfill.py` bắt đúng chỗ đó → revert
-- Bật branch protection trên `main` theo §17.3 (yêu cầu PR + CI xanh, chặn push thẳng)
+`git push` qua PAT nhúng thẳng vào URL remote bị permission classifier của Claude Code auto
+mode chặn (hành động outward-facing, khó đảo ngược) — user tự chạy `git push` bằng tay lần
+đầu; các lần push sau (sau khi user đã xác nhận) chạy được qua Bash bình thường. Mở PR +
+theo dõi CI + tải log lỗi làm qua REST API thẳng (`curl` + `Authorization: Bearer`), không
+cần cài `gh` CLI — đủ dùng.
 
-Code/test/CI-config phần này đã HOÀN CHỈNH và verify được cục bộ tối đa có thể mà không cần
-GitHub API — phần còn lại thuần là thao tác trên GitHub, không viết thêm code.
+**PR #1** mở vào `main`: https://github.com/Quybuno/industry-intel-bot/pull/1 (5 commit ban
+đầu, sau đó thêm 3 commit sửa lỗi CI thật, tổng 8 commit).
+
+**Lần push đầu tiên CI đỏ ngay — và 3 vòng sửa tiếp theo cũng đỏ, mỗi vòng một lỗi THẬT khác
+nhau, chỉ lộ ra trên GitHub Actions checkout sạch, KHÔNG lộ trên máy dev vì máy dev đã tích
+luỹ `dbt_project/target/` + toàn bộ bảng/view gold từ rất nhiều lần `dbt build` thủ công
+xuyên suốt phiên làm việc.** Đây đúng là giá trị của CI mà đề bài đặt ra ("PR sau này phá vỡ
+tính lũy đẳng — không có gì ngăn" áp dụng y hệt cho "môi trường sạch phơi ra thứ máy dev che
+giấu"). Mỗi lỗi đều: tái hiện được cục bộ trên DB tạm mới migrate (drop/create + alembic
+upgrade head, không phải suy đoán từ log), sửa, xác nhận sửa đúng, rồi mới push:
+
+1. **`pytest tests/unit` fail lúc COLLECT** — `tests/unit/test_dagster_definitions.py` import
+   `dagster_project.definitions`, mà `dagster_project/assets/dbt_assets.py` đọc
+   `dbt_project/target/manifest.json` ngay lúc import module (decorator-time, không phải lúc
+   materialize). Workflow ban đầu chạy `dbt parse + compile` SAU `pytest tests/unit` — sai
+   thứ tự. Sửa: đổi thứ tự, `dbt parse + compile` chạy sớm hơn.
+2. **`dbt compile` tự vỡ** — `models/intermediate/int_articles_deduped.sql` gọi `run_query()`
+   ngay trong thân model (mục đích: log số nhóm content_hash trùng), chạy THẬT lúc compile
+   (Jinja `{% if execute %}`), SELECT từ `gold.stg_articles` — một VIEW dbt tự tạo, alembic
+   không biết tới. DB tạm mới migrate chưa có view này. Sửa: thêm `dbt seed` +
+   `dbt run --select staging` trước `dbt compile`.
+3. **`pytest tests/integration` fail hàng loạt** — nhiều test SELECT/INSERT trực tiếp vào
+   `gold.fct_article_score`/`mart_daily_digest`/`mart_pipeline_health` qua SQL thô (không qua
+   dbt ref), những bảng này CHỈ tồn tại sau khi chạy `dbt build` thật. Sửa: nâng bước seeding
+   từ `dbt run --select staging` lên `dbt build` đầy đủ (`--exclude assert_digest_not_empty`
+   — test nghiệp vụ §13.2 đòi >=5 dòng, đúng cho production, sai bối cảnh cho một lần build
+   0-dòng chỉ để tạo schema). `tests/integration/test_backfill.py` tự nó cũng dính đúng lỗi
+   này ở bước `_dbt_build` mart riêng của nó (partition test chỉ vài bài mock, không bao giờ
+   đạt ngưỡng 5 dòng) — thêm `--exclude` tương tự vào helper `_dbt_build` của test.
+4. **`test_alerting.py::test_check_digest_empty_returns_none_when_digest_has_rows` fail** —
+   test PHỤ THUỘC dữ liệu thật có sẵn của repo (docstring cũ ghi thẳng: "dữ liệu 2026-08 đã
+   có từ các task trước") thay vì tự tạo fixture — đúng trên máy dev (luôn có data thật),
+   SAI trên DB CI trống. Đây là lỗ hổng cô lập test có SẴN từ task 1.6 (không phải lỗi của
+   1.8/1.9), nên KHÔNG tự sửa — báo cho user qua `AskUserQuestion` với 3 lựa chọn (tự viết
+   fixture / loại riêng test này khỏi CI kèm ghi chú / dừng hẳn chờ user tự sửa 1.6). User
+   chọn: viết fixture. Thêm `_insert_digest_row`/`_cleanup_digest_row` + fixture `digest_row`
+   (đúng khuôn `clean_health_table` đã có sẵn cùng file, và đúng những gì docstring module đã
+   ghi từ đầu nhưng code trước đó chưa làm theo).
+
+**Kết quả cuối — run https://github.com/Quybuno/industry-intel-bot/actions/runs/31664879120:**
+CI xanh 9/9 step, gitleaks xanh, tổng thời gian job CI **1 phút 50 giây** (03:45:29–03:47:19
+UTC), gitleaks **10 giây**. Breakdown từng step (từ log thật, không phải ước tính):
+
+| Step | Thời gian thật trên CI |
+|---|---|
+| Initialize containers (Postgres service) | 20s |
+| Setup Python 3.12 + uv + install deps | ~4s |
+| ruff check + format --check | <1s |
+| mypy src/ | 8s |
+| alembic upgrade head | 2s |
+| dbt parse + seed + build + compile | 20s |
+| sqlfluff lint dbt_project/ | 13s |
+| pytest tests/unit | 6s |
+| pytest tests/integration | 25s |
+| dagster definitions validate | 4s |
+
+Trước khi push MỖI lần sửa, đều tái hiện lỗi + xác nhận fix trên DB tạm cục bộ (drop/create
+`ci_test_tmp`, `alembic upgrade head` từ đầu) — không đoán từ log CI rồi sửa mù.
