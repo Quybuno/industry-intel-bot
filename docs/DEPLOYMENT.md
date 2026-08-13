@@ -109,7 +109,9 @@ Actions hosted runner, HOẶC (B) Dagster schedule thật nếu Dagster chạy d
 riêng — nói rõ *"Nếu Dagster chạy trên VPS thì dùng Dagster schedule và bỏ workflow này"*.
 
 Task 1.10 triển khai chính xác phương án (B): `dagster-daemon` chạy 24/7 thật (§3 ở trên, đã
-verify chạy thật + sống sau restart), 3 schedule (`daily_pipeline_schedule` 05:00,
+verify chạy thật + sống sau restart), 3 schedule (`daily_pipeline_job_schedule` 05:00 — tên
+schedule THẬT hiện trên UI/GraphQL, khác tên biến Python `daily_pipeline_schedule` trong
+`schedules.py`, xem cách `build_schedule_from_partitioned_job` tự đặt tên;
 `midday_ingest_schedule` 12:00, `evening_ingest_schedule` 18:00) đặt `default_status=RUNNING`
 (đổi từ STOPPED — xem `dagster_project/schedules.py`, lý do STOPPED trước đây đúng là "chưa có
 daemon production thật", giờ đã có). Thêm `pipeline.yml` cron chạy CÙNG lịch 05:00 trên GitHub

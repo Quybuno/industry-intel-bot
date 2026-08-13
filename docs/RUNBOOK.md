@@ -6,8 +6,8 @@ biết bằng chứng cụ thể (output thật của từng lệnh lúc verify)
 
 Quy ước: `<DATABASE_URL>` = biến môi trường thật trong `.env` của máy đang chạy. Lệnh Python
 inline dùng `PYTHONUTF8=1 PYTHONIOENCODING=utf-8` phía trước — bắt buộc trên Windows console
-mặc định cp1252 (xem §7 "Pitfall môi trường" bên dưới), có thể bỏ nếu chạy trên Linux/máy đã
-tự cấu hình UTF-8.
+mặc định cp1252 (xem mục 9 "Pitfall môi trường" bên dưới), có thể bỏ nếu chạy trên Linux/máy
+đã tự cấu hình UTF-8.
 
 ---
 
