@@ -30,3 +30,7 @@ dbt_project/target/
 dbt_project/logs/
 dbt_project/dbt_packages/
 dbt_project/.user.yml
+
+# git worktree cục bộ trỏ nhánh gh-pages (task 1.10, §12.1) — trung gian đồng bộ
+# docs-site/ sang nhánh serve GitHub Pages, không phải source, không commit trên main.
+.gh-pages-worktree/

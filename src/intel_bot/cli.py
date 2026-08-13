@@ -20,7 +20,7 @@ if isinstance(sys.stdout, io.TextIOWrapper) and sys.stdout.encoding.lower() != "
 if isinstance(sys.stderr, io.TextIOWrapper) and sys.stderr.encoding.lower() != "utf-8":
     sys.stderr.reconfigure(encoding="utf-8")
 
-from src.intel_bot.config import load_config_dir
+from src.intel_bot.config import load_config_dir, settings
 from src.intel_bot.db.health import (
     check_connection,
     get_database_url,
@@ -34,7 +34,9 @@ from src.intel_bot.ingest.rss_fetcher import (
     run_rss_ingest,
     run_validate_sources,
 )
-from src.intel_bot.publish.runner import run_publish
+from src.intel_bot.publish.archive import prune_archive
+from src.intel_bot.publish.git_publish import commit_and_push_docs_site
+from src.intel_bot.publish.runner import PublishResult, run_publish
 from src.intel_bot.score.cost import ModelPricing
 from src.intel_bot.score.providers.base import LLMProvider
 from src.intel_bot.score.providers.deepseek import DeepSeekProvider
@@ -49,6 +51,9 @@ from src.intel_bot.score.runner import (
 #: Thư mục dbt project — dùng làm cả --project-dir lẫn --profiles-dir (profiles.yml nằm
 #: trong chính dbt_project/, xem README mục Dagster / AGENTS.md mục 8).
 DBT_PROJECT_DIR = Path(__file__).resolve().parents[2] / "dbt_project"
+
+#: Gốc repo — dùng để đặt worktree nhánh GitHub Pages (task 1.10, §12.1).
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 load_dotenv()
 
@@ -484,6 +489,77 @@ def score(
         raise typer.Exit(code=1)
 
 
+def _publish_and_sync_docs_site(
+    connection: sa.Connection,
+    *,
+    generated_for_date: datetime.date,
+    now: datetime.datetime,
+) -> tuple[PublishResult, list[Path], str | None]:
+    """`run_publish()` + prune archive cũ (D7, §12.2) + commit/push docs-site/ lên nhánh
+    GitHub Pages (D6, §12.1) — logic dùng chung cho lệnh `publish` và `pipeline`, cùng một
+    hành vi với asset `published_site` (`dagster_project/assets/serve.py`) để đường CLI dự
+    phòng (task 1.8/1.9) cũng cập nhật được trang công khai, không chỉ ghi file cục bộ.
+
+    Trả về `(PublishResult, danh_sách_file_archive_đã_xoá, git_push_error_hoặc_None)` — lỗi
+    push KHÔNG raise (rào chắn task 1.10 mục 1), bên gọi tự quyết định báo lỗi thế nào.
+    """
+    publish_cfg = load_config_dir().get("app", {}).get("publish", {})
+    repo_url = publish_cfg.get("repo_url")
+    if not repo_url:
+        typer.echo(
+            "Thiếu config app.yaml: publish.repo_url — không tự bịa link repo.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    docs_site_dir = Path(publish_cfg.get("docs_site_dir", "docs-site"))
+    templates_dir = Path(publish_cfg.get("templates_dir", "templates"))
+    archive_days = int(publish_cfg.get("archive_days", 7))
+    gh_pages_branch = publish_cfg.get("gh_pages_branch", "gh-pages")
+    worktree_dir = REPO_ROOT / publish_cfg.get(
+        "gh_pages_worktree_dir", ".gh-pages-worktree"
+    )
+
+    result = run_publish(
+        connection,
+        generated_for_date=generated_for_date,
+        docs_site_dir=docs_site_dir,
+        templates_dir=templates_dir,
+        repo_url=repo_url,
+        now=now,
+    )
+
+    removed_archives = prune_archive(
+        docs_site_dir, archive_days=archive_days, today=generated_for_date
+    )
+
+    git_push_error: str | None = None
+    if not settings.GIT_PUBLISH_TOKEN:
+        git_push_error = (
+            "Thiếu biến môi trường GIT_PUBLISH_TOKEN — không commit/push docs-site/."
+        )
+    else:
+        # commit_and_push_docs_site() có thể raise (vd. nhánh gh-pages chưa bootstrap) —
+        # bắt ở đây giống hệt lý do ở dagster_project/assets/serve.py: rào chắn task 1.10
+        # mục 1 không phân biệt "loại" lỗi git-publish, lệnh vẫn phải thành công vì file cục
+        # bộ đã ghi xong.
+        try:
+            git_result = commit_and_push_docs_site(
+                repo_root=REPO_ROOT,
+                docs_site_dir=docs_site_dir,
+                worktree_dir=worktree_dir,
+                branch=gh_pages_branch,
+                pat=settings.GIT_PUBLISH_TOKEN,
+                commit_message=f"publish: digest {generated_for_date.isoformat()}",
+            )
+        except Exception as exc:  # noqa: BLE001 — xem giải thích ở trên
+            git_push_error = str(exc)
+        else:
+            if git_result.error:
+                git_push_error = git_result.error
+
+    return result, removed_archives, git_push_error
+
+
 @app.command()
 def publish(
     date: str | None = typer.Option(
@@ -500,7 +576,9 @@ def publish(
 
     Truy vấn DUY NHẤT: SELECT * FROM gold.mart_daily_digest — không sắp xếp/lọc/dedup gì
     thêm ở đây, mart đã làm hết (§12.1). Sau khi ghi file, cập nhật
-    silver.articles.last_published_at (ngoại lệ DUY NHẤT được chạm bảng khác).
+    silver.articles.last_published_at (ngoại lệ DUY NHẤT được chạm bảng khác), dọn archive
+    cũ hơn `archive_days` (D7, §12.2), rồi commit + push `docs-site/` lên nhánh GitHub Pages
+    (D6, §12.1) — lỗi push chỉ cảnh báo, KHÔNG làm lệnh thất bại (file cục bộ đã ghi xong).
     """
     if date:
         generated_for_date = datetime.date.fromisoformat(date)
@@ -508,28 +586,12 @@ def publish(
         generated_for_date = datetime.datetime.now(tz=VN_TZ).date()
     now = datetime.datetime.now(tz=VN_TZ)
 
-    publish_cfg = load_config_dir().get("app", {}).get("publish", {})
-    repo_url = publish_cfg.get("repo_url")
-    if not repo_url:
-        typer.echo(
-            "Thiếu config app.yaml: publish.repo_url — không tự bịa link repo.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    docs_site_dir = Path(publish_cfg.get("docs_site_dir", "docs-site"))
-    templates_dir = Path(publish_cfg.get("templates_dir", "templates"))
-
     database_url = get_database_url()
     engine = sa.create_engine(database_url, future=True)
     try:
         with engine.connect() as connection:
-            result = run_publish(
-                connection,
-                generated_for_date=generated_for_date,
-                docs_site_dir=docs_site_dir,
-                templates_dir=templates_dir,
-                repo_url=repo_url,
-                now=now,
+            result, removed_archives, git_push_error = _publish_and_sync_docs_site(
+                connection, generated_for_date=generated_for_date, now=now
             )
     finally:
         engine.dispose()
@@ -543,6 +605,10 @@ def publish(
     typer.echo(
         f"  Đã cập nhật last_published_at cho {result.articles_marked_published} bài"
     )
+    if removed_archives:
+        typer.echo(f"  Đã xoá {len(removed_archives)} file archive cũ")
+    if git_push_error:
+        typer.echo(f"  Cảnh báo: push docs-site/ thất bại: {git_push_error}", err=True)
     if result.article_count == 0:
         typer.echo(
             "Cảnh báo: gold.mart_daily_digest rỗng — kiểm tra dbt run gần nhất.",
@@ -674,29 +740,23 @@ def pipeline(
             typer.echo("[5/6] dbt build (marts)...")
             _run_dbt_build_for_marts(run_date)
 
-            # 6. publish
-            publish_cfg = cfg.get("app", {}).get("publish", {})
-            repo_url = publish_cfg.get("repo_url")
-            if not repo_url:
-                typer.echo(
-                    "Thiếu config app.yaml: publish.repo_url — không tự bịa link repo.",
-                    err=True,
-                )
-                raise typer.Exit(code=1)
-            docs_site_dir = Path(publish_cfg.get("docs_site_dir", "docs-site"))
-            templates_dir = Path(publish_cfg.get("templates_dir", "templates"))
+            # 6. publish (+ prune archive D7 + commit/push docs-site/ D6, §12.1/§12.2)
             typer.echo("[6/6] publish...")
-            publish_result = run_publish(
-                connection,
-                generated_for_date=run_date,
-                docs_site_dir=docs_site_dir,
-                templates_dir=templates_dir,
-                repo_url=repo_url,
-                now=now,
+            publish_result, removed_archives, git_push_error = (
+                _publish_and_sync_docs_site(
+                    connection, generated_for_date=run_date, now=now
+                )
             )
             typer.echo(
                 f"      {publish_result.article_count} bài -> {publish_result.index_html_path}"
             )
+            if removed_archives:
+                typer.echo(f"      Đã xoá {len(removed_archives)} file archive cũ")
+            if git_push_error:
+                typer.echo(
+                    f"      Cảnh báo: push docs-site/ thất bại: {git_push_error}",
+                    err=True,
+                )
     finally:
         engine.dispose()
 
