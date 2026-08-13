@@ -1927,3 +1927,24 @@ thẳng trên máy dev này. Cập nhật:
 kế tiếp sẽ tự chạy, tốn chi phí LLM thật. Việc CÒN LẠI ngoài phạm vi có thể tự làm từ phiên
 này: user tự đăng ký 2 Scheduled Task (quyền Admin) + tự cân nhắc có test reboot thật hay
 không (đã từ chối lúc này, có thể làm sau).
+
+### 18.8 PR #1 merge vào `main` + 2 Scheduled Task — user tự hoàn tất
+
+- **PR #1 merge vào `main`** qua REST API (`PUT /pulls/1/merge`, merge commit thường — giữ
+  nguyên toàn bộ 25 commit, kể cả 3 drill CI cố ý phá/revert, đúng tinh thần "ghi lại đầy đủ,
+  không giấu" xuyên suốt dự án) → `da015c9`. Xác nhận: `main` có đủ mọi file mới
+  (`Dockerfile`, `docker-entrypoint.sh`, `docs/RUNBOOK.md`, `docs/DEPLOYMENT.md`,
+  `src/intel_bot/publish/git_publish.py`), `291/291` test pass trên `main` sau khi checkout
+  lại. `main` vẫn không push thẳng được (branch protection nguyên vẹn, chỉ merge qua đúng
+  đường PR).
+- **2 Scheduled Task** (`DockerDesktopAutoStart`, `IntelBotComposeUp`) — user tự chạy 2 đoạn
+  lệnh `Register-ScheduledTask` trong PowerShell (Run as Administrator, đúng nguyên văn lệnh
+  đã ghi ở `docs/DEPLOYMENT.md` mục 4), tự xác nhận bằng `Get-ScheduledTask` → cả 2 báo
+  `State: Ready`. Đây là bằng chứng do user tự chạy và báo lại (agent không có quyền Admin để
+  tự verify) — chấp nhận được vì đây đúng bản chất của bước này: một thao tác 1 lần cần
+  quyền cao hơn agent, không phải quyết định cần verify độc lập thêm.
+
+**Task 1.10 — TẤT CẢ phần code/hạ tầng/tài liệu thuộc phạm vi agent làm được đã hoàn tất và
+merge vào `main`.** Phần còn lại (test reboot thật, quan sát 14 ngày chạy không can thiệp
+theo đúng mục tiêu tổng thể Phase 1) thuộc về thời gian/quyền hạn ngoài phạm vi một phiên làm
+việc — không phải việc "quên làm", mà là bản chất của các hạng mục đó.
