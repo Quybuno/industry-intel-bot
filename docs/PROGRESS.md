@@ -1718,3 +1718,183 @@ remote: - 2 of 2 required status checks are expected.
 Bị từ chối thật, đúng thông điệp mong đợi. Xoá nhánh tạm cục bộ, không có gì lọt vào `main`.
 
 **Task 1.8 + 1.9 — TẤT CẢ DONE WHEN đã verify thật, không còn mục nào "chờ".**
+
+## 18. Đã làm — 1.10 Production + RUNBOOK (PRODUCTION_PLAN §12.1, §12.2, §16.1–16.4, §17.2,
+§18.4, §23.2)
+
+Máy production do user chọn: **máy remote Windows (đã có Docker cài sẵn)**, KHÔNG phải máy
+dev này. Thử SSH vào (`113.161.126.100:33888`) để tự cấu hình từ xa — thất bại thật (port đó
+không phải sshd, một tiến trình KHÁC đang chiếm, `Get-Service sshd` báo không tồn tại service
+— không phải đoán, xem log chat gốc) — user quyết định tự bê code sang máy đó, tôi chuẩn bị
+sẵn toàn bộ code/docker-compose/tài liệu để user tự chạy trên đó. Vì vậy: mọi phần CODE (git-
+publish, archive prune, Dockerfile, docker-compose) đã tự chạy thật và verify được trên máy
+dev này (build image thật, `docker compose up`, `docker restart`, push thật lên GitHub) —
+phần DUY NHẤT chưa tự verify được là **reboot thật của đúng máy production** (không có quyền
+truy cập máy đó).
+
+### 18.1 D6 — commit + push `docs-site/` lên GitHub Pages (§12.1)
+
+`docs-site/` KHÔNG BAO GIỜ được commit trước task này (quy ước cũ, xem mục 5B "cố ý chưa
+làm"). Thử bật GitHub Pages trước khi viết code — phát hiện **GitHub Pages không serve được
+từ thư mục con tuỳ ý** (`POST /pages` với `path=/docs-site` → GitHub từ chối thật, không phải
+đọc docs). 2 hướng: đổi tên `docs-site/` → `docs/` trên `main` (đơn giản hơn nhưng phải sửa
+quy ước dùng khắp repo), hoặc nhánh riêng `gh-pages` (giữ nguyên convention). User chọn nhánh
+riêng.
+
+`src/intel_bot/publish/git_publish.py` (mới): dùng `git worktree` (không phải `git subtree`
+— không tạo commit thừa trên `main` cho một thư mục toàn artifact sinh tự động) trỏ nhánh
+`gh-pages`, đồng bộ NỘI DUNG `docs-site/` vào ROOT của worktree, commit+push nếu có đổi. PAT
+(`GIT_PUBLISH_TOKEN`) chỉ nhúng trong URL truyền cho ĐÚNG một lệnh `git push` (không
+`git remote set-url` — không đụng `.git/config`), mọi output lỗi được redact token trước khi
+log/trả về. Push lỗi (thiếu token, PAT hết hạn, mất mạng, hoặc `ensure_worktree()` tự nó lỗi
+vì nhánh chưa bootstrap) đều bị bắt (kể cả exception, không chỉ field `.error`) và chuyển
+thành log warning + `notifier.send_alert()` — KHÔNG fail asset (rào chắn task 1.10 mục 1, vì
+heartbeat vẫn phải ping dù bước này lỗi kiểu gì).
+
+Bootstrap nhánh `gh-pages` làm THẬT (không phải hướng dẫn suông): tạo bằng scratch clone
+riêng, nội dung ban đầu = digest thật đang có (15 bài, publish lại cho mới), push lên
+`origin/gh-pages` thật.
+
+**Verify THẬT từng DONE WHEN, không phải đọc code rồi tin:**
+- `uv run python -m src.intel_bot.cli publish` lần 1 → commit thật lên `gh-pages`
+  (`27209a4`), xác nhận bằng `git show gh-pages:index.html` trên chính bare repo remote.
+- Chạy lại publish lần 2, nội dung KHÔNG đổi → `git log origin/gh-pages -1` vẫn `27209a4`,
+  KHÔNG có commit mới — P1 xác nhận đúng.
+- User tự bật GitHub Pages qua UI (PAT của tôi thiếu quyền "Pages", 403 khi thử qua API) —
+  `curl https://quybuno.github.io/industry-intel-bot/` → HTTP 200, **15 bài, 0 kết quả
+  "giả lập"** trong cả `index.html` lẫn `articles.json`.
+
+### 18.2 D7 — archive pruning (§12.2)
+
+`src/intel_bot/publish/archive.py` (mới) — `archive_days` (`config/app.yaml`) từ chỗ chỉ
+"tài liệu hoá" (mục 5B) thành thật sự xoá `docs-site/archive/*.json` cũ hơn ngưỡng (so theo
+TÊN FILE, không phải mtime). Thuần filesystem, không nhận `connection` — Postgres không bị
+đụng tới.
+
+**Verify thật:** tạo file archive giả `2026-07-01.json` (43 ngày trước) + `2026-08-10.json`
+(3 ngày trước, trong hạn), chạy publish → đúng 1 file bị xoá (`2026-07-01.json`), file trong
+hạn còn nguyên. Dữ liệu Postgres (`silver.articles` cũ hơn 7 ngày) vẫn truy vấn được bình
+thường (khác bảng hoàn toàn, không liên quan tới việc xoá file JSON).
+
+Cả D6 và D7 wire vào **2 nơi**: asset `published_site` (bắt buộc theo đề) VÀ helper dùng
+chung `_publish_and_sync_docs_site()` trong `cli.py` (gọi từ cả lệnh `publish` lẫn `pipeline`)
+— quyết định chủ động: nếu chỉ wire vào asset, đường CLI dự phòng (task 1.8/1.9) sẽ báo
+"publish xong" nhưng không hề cập nhật trang thật, phá đúng mục đích "dự phòng" của nó.
+
+8 test mới (`tests/unit/test_archive_prune.py`, `tests/unit/test_git_publish.py`) — dùng git
+THẬT (bare repo cục bộ đóng vai "origin", không mock git, không cần PAT vì remote local
+không phải HTTPS — nhánh code path xử lý remote non-HTTPS được tách riêng, tiện thể là một
+cải thiện robustness thật cho trường hợp remote SSH sau này). 291/291 test tổng.
+
+### 18.3 Daemon 24/7 (§16.1-16.4) — Docker, build + chạy thật trên máy dev trước khi viết tài liệu
+
+`Dockerfile` (mới) — 1 image dùng chung cho `dagster-daemon` + `dagster-webserver` (khác
+`command:` trong compose). 2 lỗi thật gặp khi build/chạy LẦN ĐẦU (không phải suy đoán từ CI):
+
+1. **`uv sync` vỡ ngay ở layer đầu** — `hatchling` đọc `pyproject.toml`'s `readme =
+   "README.md"` lúc resolve, nhưng layer đó mới copy `pyproject.toml`+`uv.lock`, chưa có
+   `README.md`. Sửa: copy cả `README.md` cùng lúc.
+2. **Container crash ngay khi import `definitions.py`** — CHÍNH XÁC lỗi `manifest.json`
+   không tồn tại đã gặp ở CI (task 1.9): `.dockerignore` loại `dbt_project/target/` (đúng,
+   đó là artifact) nhưng nghĩa là container mới KHÔNG có manifest. Sửa: `docker-entrypoint.sh`
+   chạy `dbt parse` (chỉ parse, không cần seed/build như CI — daemon/webserver chỉ IMPORT
+   manifest, không tự chạy compile/build lúc khởi động) trước khi giao lại cho command thật.
+
+`docker-compose.yml`: `dagster-daemon`+`dagster-webserver` chung 1 volume `dagster_home`
+(bắt buộc — thiếu thì run do schedule tạo ra không hiện trên UI, cursor sensor mất khi
+restart). `DATABASE_URL` override trỏ `postgres:5432` (hostname/port NỘI BỘ mạng docker, khác
+giá trị `.env` dùng cho máy dev truy cập từ host qua `localhost:5435`). Webserver bind
+`127.0.0.1:3000` (không public — không dịch vụ nào ở đây có auth). Cả 3 service (kể cả
+`postgres`, trước đây không có) thêm `restart: unless-stopped`.
+
+**Verify thật, không chỉ đọc file compose rồi tin:**
+- `docker compose build` → 2 lỗi trên, sửa xong build sạch.
+- `docker compose up -d dagster-daemon dagster-webserver` → daemon log show sensor tick bình
+  thường (`cost_sensor`/`run_failure_sensor`/`quarantine_sensor` đều chạy), webserver
+  `Serving dagster-webserver on http://0.0.0.0:3000`.
+- `curl http://127.0.0.1:3000/` → HTTP 200. GraphQL `schedulesOrError` → cả 3 schedule
+  `RUNNING`.
+- `docker restart` cả 2 container → GraphQL lại → vẫn cả 3 `RUNNING` — xác nhận state sống
+  qua restart nhờ volume `dagster_home` dùng chung.
+- Dừng 2 container test này lại sau khi verify (không để chạy song song với máy production
+  thật sau này — tránh 2 nơi cùng publish/ping heartbeat).
+
+`dagster_project/schedules.py`: **đổi `default_status` từ STOPPED → `RUNNING`** cho cả 3
+schedule (05:00/12:00/18:00). Trước đây STOPPED CÓ CHỦ ĐÍCH (task 0.12/1.6, lý do ghi rõ
+trong code: "chưa có daemon production thật") — giờ daemon đã có thật, để STOPPED sẽ khiến
+DONE WHEN "reboot → lịch 05:00 tự chạy không cần can thiệp" SAI (phải vào UI bật tay mỗi lần
+daemon khởi động lại từ đầu, đúng thứ DONE WHEN cấm). Đây KHÔNG phải sửa business logic —
+chỉ là default-config vận hành, quyết định thuộc đúng phạm vi task 1.10.
+
+Tiện thể phát hiện `gold.mart_pipeline_health` (incremental) có 0 dòng trên DB dev — do các
+lần dọn dẹp có phạm vi (scoped delete) trong suốt phiên làm việc dài này vô tình xoá luôn vài
+ngày thật. KHÔNG phải bug (model incremental đúng thiết kế không tự backfill ngày cũ khi
+không được yêu cầu) — rebuild lại cho 4 ngày thật gần nhất bằng `dbt build --select
+mart_pipeline_health --vars run_date=...` từng ngày, dọn dẹp môi trường dev, không đụng model.
+
+### 18.4 `docs/DEPLOYMENT.md` + Windows Task Scheduler (mới)
+
+Bootstrap 1 lần (alembic, build image, KHÔNG cần bootstrap `gh-pages` — nhánh đã tồn tại
+sẵn trên GitHub, không phụ thuộc máy nào), lệnh start/stop/log chính xác cho repo này (đã tự
+chạy thật từng lệnh, không suy đoán cú pháp), đăng ký Task Scheduler khởi động Docker Desktop
+lúc boot + `docker compose up -d` dự phòng sau vài phút. **Phần reboot thật KHÔNG tự verify
+được** (không SSH được vào máy production) — ghi rõ ngay đầu file, không giấu, để user tự làm
+1 lần sau khi deploy.
+
+**§17.2 — quyết định KHÔNG tạo `pipeline.yml` cron GitHub Actions:** đã có daemon thật 24/7 +
+3 schedule `RUNNING` (mục 18.3) → thêm cron song song sẽ chạy TRÙNG giờ 05:00, tốn gấp đôi
+tiền LLM thật (không phải rủi ro lý thuyết) + có thể đụng nhau lúc push `gh-pages`. `ci.yml`
+(task 1.9) giữ nguyên — đó là CI mỗi PR, không phải lịch hằng ngày, không liên quan.
+
+### 18.5 `docs/RUNBOOK.md` (mới) — 8 tình huống §18.4, MỌI lệnh chẩn đoán tự chạy thật
+
+Không đoán tên cột — vài chỗ ban đầu đoán sai, tự sửa khi chạy thử vỡ:
+- `mart_pipeline_health` không có cột `run_date` (thật là `pipeline_date`) hay
+  `digest_article_count` (không tồn tại).
+- `mart_daily_digest`/`fct_article_score` đều KHÔNG có cột `content_hash` — cột đó chỉ có ở
+  `silver.articles`, phải JOIN qua `article_id` mới lấy được (scenario 6 "bài trùng").
+- Scenario 6 xử lý (`dbt build --select int_articles_deduped+`) — tự hỏi liệu `dbt build
+  --select` có nhận model `materialized="ephemeral"` làm target không (không chắc), chạy thử
+  thật → nhận, tự resolve đúng 2 model downstream thật (`fct_article_score`+
+  `mart_daily_digest`).
+- Scenario 8 (git push bị từ chối) — tái hiện THẬT bằng PAT giả, lấy đúng message lỗi GitHub
+  trả về, dọn lại commit cục bộ mồ côi phát sinh trong worktree `gh-pages` sau khi push thất
+  bại (push fail nhưng commit LOCAL vẫn tồn tại — `git reset --hard origin/gh-pages` trong
+  worktree để dọn).
+
+Tự đọc lại (mục 23.2 khoản 7) → bắt được 1 tham chiếu chéo sai (`§7` không tồn tại, đúng là
+mục 9) + 1 tên schedule sai trong `DEPLOYMENT.md` (`daily_pipeline_schedule` là tên BIẾN
+Python, tên THẬT hiện trên UI/GraphQL là `daily_pipeline_job_schedule`, tự đặt bởi
+`build_schedule_from_partitioned_job`) — sửa cả hai.
+
+### 18.6 Go-live checklist §23.2 — 7/7 mục, bằng chứng thật
+
+1. **Toàn bộ dbt tests pass** — `dbt test --vars run_date=2026-08-13` (không loại trừ gì) →
+   **50/50 PASS**, kể cả `assert_digest_not_empty` (dữ liệu production thật đủ ≥5 dòng).
+2. **Alert đã test bằng cách gây lỗi thật** — đã làm THẬT ở task 1.6 (mục 16.3: cố ý fail
+   asset, xoá `mart_daily_digest`, chèn `quarantine_rate` giả vượt ngưỡng — cả 3 đều có
+   Telegram alert thật, dẫn link run) — không lặp lại, chỉ tham chiếu bằng chứng cũ.
+3. **Heartbeat đã test bằng cách bỏ một ngày — TEST THẬT, không phải pseudo-verification:**
+   user tạm giảm Period (5 phút)/Grace (2 phút) trên healthchecks.io → tôi KHÔNG ping trong
+   9 phút → Events log check tự chuyển `up → down` lúc 08:31 (không phải giả lập) → user tự
+   kiểm tra Integrations tab: email `ngocquydo10@gmail.com` "Delivered" → **user tìm thấy
+   email thật**: *"'My First Check' is UP. The downtime lasted 20 minutes, 12 seconds."*,
+   `Status Changed to Up at: Thu, 13 Aug 2026 08:52:01 +0000`. User tự đặt lại Period/Grace
+   về giá trị gốc sau khi xác nhận xong.
+4. **Backfill đã test** — đã làm THẬT ở task 1.8 (`test_backfill.py`, tìm ra + sửa 1 bug thật
+   `first_seen_date`) — tham chiếu bằng chứng cũ, không lặp lại.
+5. **`.env` không nằm trong git; gitleaks pass** — `git ls-files | grep '^\.env$'` → rỗng,
+   `git check-ignore .env` → có (đúng gitignore). gitleaks xanh trên mọi CI run của nhánh này
+   (task 1.9) + scan thủ công qua Docker trên toàn lịch sử — "no leaks found".
+6. **Disclaimer có trên trang** — `curl` trang thật →
+   *"Tóm tắt và đánh giá trên trang này do AI sinh tự động — vui lòng đọc bài gốc..."* — có
+   thật, không phải đọc template rồi tin.
+7. **RUNBOOK đã đọc lại** — tự đọc lại toàn bộ `RUNBOOK.md`+`DEPLOYMENT.md` sau khi viết, bắt
+   được 3 lỗi thật (mục 18.5) — không phải "đọc lướt qua rồi tick".
+
+**Task 1.10 — 6/6 hạng mục DONE WHEN chính đã verify thật** (commit+push thật, no-op-khi-
+không-đổi thật, prune thật, daemon thật+sống-qua-restart thật, RUNBOOK/checklist đầy đủ bằng
+chứng thật). **1 hạng mục KHÔNG verify được từ phiên làm việc này: "reboot toàn bộ hệ điều
+hành → daemon tự khởi động lại → lịch 05:00 chạy không cần can thiệp"** — không có quyền
+truy cập máy production thật (SSH thất bại, user tự deploy). Đã ghi rõ, không giấu, trong cả
+`docs/DEPLOYMENT.md` (đầu file) lẫn ở đây — user cần tự làm 1 lần sau khi deploy xong.
