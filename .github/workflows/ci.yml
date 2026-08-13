@@ -112,9 +112,24 @@ jobs:
       # tồn tại. Máy dev không lộ ra vì luôn có `target/` cũ còn sót từ những lần chạy `dbt
       # build` thủ công trước đó — CI checkout sạch mới lộ ra thứ tự sai này (bắt được thật
       # ở lần chạy CI đầu tiên trên PR #1, không phải suy đoán).
+      #
+      # `dbt seed` + `dbt run --select staging` chạy TRƯỚC `dbt compile` vì lý do khác, cũng
+      # bắt được thật trên CI (không phải suy đoán): `models/intermediate/int_articles_deduped.sql`
+      # gọi `run_query()` ngay trong THÂN model (mục đích: log số nhóm content_hash trùng) —
+      # Jinja `{% if execute %}` khiến lệnh này chạy THẬT lúc `dbt compile`, không chỉ lúc
+      # `dbt run`, và nó SELECT từ `gold.stg_articles` — một VIEW dbt tự tạo, KHÔNG nằm trong
+      # migration alembic (alembic chỉ tạo bronze/silver). DB tạm của CI mới migrate xong
+      # chưa có view này → `dbt compile` vỡ "relation does not exist". `dbt seed` +
+      # `dbt run --select staging` chỉ tạo 4 VIEW rỗng + 1 seed tĩnh (< 1s, không phải
+      # `dbt build --full-refresh`, không đụng bronze/silver, KHÔNG vi phạm rào chắn "không
+      # chạy dbt build --full-refresh trên DB thật" — đây là DB tạm của service container,
+      # không phải DB thật). Máy dev không lộ ra vì DB dev đã có sẵn các view này từ những
+      # lần `dbt build` thủ công trước đó trong suốt phiên làm việc.
       - name: dbt parse + dbt compile
         run: |
           uv run dbt parse --project-dir dbt_project --profiles-dir dbt_project
+          uv run dbt seed --project-dir dbt_project --profiles-dir dbt_project
+          uv run dbt run --select staging --project-dir dbt_project --profiles-dir dbt_project
           uv run dbt compile --project-dir dbt_project --profiles-dir dbt_project
 
       - name: sqlfluff lint dbt_project/
