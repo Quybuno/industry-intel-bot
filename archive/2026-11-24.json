@@ -1,0 +1,478 @@
+{
+  "generated_for_date": "2026-11-24",
+  "digest_built_at": "2026-11-24T15:54:27.465990+00:00",
+  "article_count": 15,
+  "articles": [
+    {
+      "score_id": "757685c2-1bed-48cd-bcae-fa8749722227",
+      "article_id": "fb4e8a90-f07f-5c43-825d-788938bb2e73",
+      "canonical_url": "https://the-decoder.com/german-researchers-call-for-computer-science-to-reinvent-itself-as-computer-and-ai-science",
+      "title": "German researchers call for computer science to reinvent itself as \"Computer and AI Science\"",
+      "snippet": "In a position paper, TU Darmstadt researchers call for redefining computer science as \"Computer and AI Science.\" Their biggest concern is code generated on the fly at runtime, which they say upends today's safety and correctness guarantees.\nThe article German researchers call for computer science to reinvent itself as &quot;Computer and AI Science&quot; appeared first on The Decoder.",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "the_decoder",
+      "source_domain": "the-decoder.com",
+      "source_tier": 1,
+      "published_at": "2026-11-24T12:30:49+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.6,
+      "importance": 7,
+      "practicality": 3,
+      "depth": 4,
+      "recency_boost": 1.0,
+      "composite_score": 7.193,
+      "summary_vi": [
+        "Nhóm nghiên cứu tại TU Darmstadt công bố bản thảo vị thế đề xuất định nghĩa lại khoa học máy tính thành \"Computer and AI Science\".",
+        "Theo họ, AI đã thấm vào mọi tầng của hệ thống nên không thể tách rời khỏi nghiên cứu và đào tạo CNTT truyền thống.",
+        "Lo ngại lớn nhất là mã được sinh ra ngay tại thời điểm chạy (runtime) thay vì được viết và kiểm thử trước.",
+        "Cách làm này phá vỡ các bảo đảm hiện hành về an toàn và tính đúng đắn của phần mềm.",
+        "Nhóm kêu gọi xây dựng lại nền tảng lý thuyết và phương pháp kiểm chứng cho hệ thống có AI tham gia."
+      ],
+      "why_it_matters_vi": "Khi mã do AI sinh ra ngay lúc chạy, các chuẩn kiểm thử, chứng minh tính đúng đắn và chứng nhận an toàn hiện nay mất hiệu lực — đội kỹ thuật và quản lý rủi ro cần chuẩn bị trước.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "7be9cac6-e820-4910-a577-f84595a9eaf9",
+      "article_id": "9d88a39e-1e40-5268-af37-8e13b89f010b",
+      "canonical_url": "https://constructiondive.com/news/4-construction-contract-provisions-ill-never-sign/875516",
+      "title": "4 construction contract provisions I’ll never sign",
+      "snippet": "A construction executive breaks down the increased risks on today&rsquo;s more complex projects and why contractors need to be more choosy about what they agree to.",
+      "industry_tags": [
+        "construction"
+      ],
+      "source_id": "construction_dive",
+      "source_domain": "constructiondive.com",
+      "source_tier": 1,
+      "published_at": "2026-11-24T14:57:00+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.0,
+      "importance": 6,
+      "practicality": 6,
+      "depth": 2,
+      "recency_boost": 1.0,
+      "composite_score": 7.165,
+      "summary_vi": [
+        "Một lãnh đạo ngành xây dựng liệt kê bốn điều khoản hợp đồng mà ông từ chối ký vì rủi ro không cân xứng.",
+        "Bài viết chỉ ra rằng các dự án ngày càng phức tạp làm gia tăng rủi ro cho nhà thầu so với trước.",
+        "Nhà thầu được khuyến nghị đọc kỹ và chọn lọc những điều khoản rủi ro trước khi ký hợp đồng.",
+        "Việc chấp nhận các điều khoản bất lợi có thể khiến nhà thầu gánh trách nhiệm vượt tầm kiểm soát.",
+        "Thông điệp chính: cần cân nhắc kỹ, thương lượng và từ chối các điều khoản đẩy rủi ro sang nhà thầu."
+      ],
+      "why_it_matters_vi": "Bài đáng chú ý vì giúp nhà thầu xây dựng nhận diện điều khoản hợp đồng rủi ro và bảo vệ biên lợi nhuận trong dự án phức tạp.",
+      "industry_group": "construction"
+    },
+    {
+      "score_id": "dc3c90c3-a791-44ae-8167-aa66b0b09195",
+      "article_id": "c14cc630-070a-59fe-b075-96e9ce40cd4b",
+      "canonical_url": "https://the-decoder.com/anthropics-claude-ship-lets-ai-agents-review-fix-and-approve-pull-requests-on-their-own",
+      "title": "Anthropic's Claude Ship lets AI agents review, fix, and approve pull requests on their own",
+      "snippet": "Anthropic has introduced Claude Ship, a new tool currently in beta that automatically reviews, corrects, and approves suggestions for code changes in accordance with team guidelines.\nThe article Anthropic&#039;s Claude Ship lets AI agents review, fix, and approve pull requests on their own appeared first on The Decoder.",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "the_decoder",
+      "source_domain": "the-decoder.com",
+      "source_tier": 1,
+      "published_at": "2026-11-24T11:26:23+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.4,
+      "importance": 6,
+      "practicality": 5,
+      "depth": 3,
+      "recency_boost": 1.0,
+      "composite_score": 7.162,
+      "summary_vi": [
+        "Anthropic ra mắt Claude Ship bản beta, công cụ tự động rà soát, sửa và duyệt các đề xuất thay đổi mã nguồn.",
+        "Công cụ làm việc theo hướng dẫn của từng nhóm, tự điều chỉnh pull request cho khớp quy chuẩn nội bộ.",
+        "Claude Ship có thể tự phê duyệt pull request mà không cần lập trình viên can thiệp ở từng bước.",
+        "Đây là bước tiến mới của Anthropic trong việc đưa AI agent vào sâu quy trình phát triển phần mềm.",
+        "Thông tin được công bố qua The Decoder, hiện chưa có lịch phát hành bản chính thức."
+      ],
+      "why_it_matters_vi": "Nếu AI agent tự duyệt code, doanh nghiệp giảm tải khâu review và tăng tốc phát hành, nhưng cũng đặt ra câu hỏi lớn về kiểm soát chất lượng và trách nhiệm khi sự cố xảy ra.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "bcc00fc4-39cc-4eb2-9d73-f9c92ef0af48",
+      "article_id": "b418b5de-34cd-54e5-b458-bf773eff06e5",
+      "canonical_url": "https://the-decoder.com/dozens-of-insiders-say-openai-and-anthropics-unreleased-models-have-outgrown-their-safety-measures",
+      "title": "Dozens of insiders say OpenAI and Anthropic's unreleased models have outgrown their safety measures",
+      "snippet": "According to an Axios report, many employees at OpenAI and Anthropic believe the companies' own unreleased frontier models can no longer be safely controlled. Both companies are internally debating whether to halt releases or even stop training altogether, while employee trust in leadership is eroding.\nThe article Dozens of insiders say OpenAI and Anthropic&#039;s unreleased models have outgrown their safety measures appeared first on The Decoder.",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "the_decoder",
+      "source_domain": "the-decoder.com",
+      "source_tier": 1,
+      "published_at": "2026-11-24T14:02:31+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.4,
+      "importance": 7,
+      "practicality": 3,
+      "depth": 4,
+      "recency_boost": 1.0,
+      "composite_score": 7.142,
+      "summary_vi": [
+        "Theo báo cáo của Axios, nhiều nhân viên tại OpenAI và Anthropic tin các mô hình frontier chưa phát hành của họ đã vượt khỏi tầm kiểm soát an toàn.",
+        "Nội bộ cả hai công ty đang tranh luận về khả năng tạm dừng phát hành, thậm chí dừng hẳn việc huấn luyện các mô hình mới.",
+        "Niềm tin của nhân viên vào ban lãnh đạo đang xói mòn khi các biện pháp an toàn tỏ ra lạc hậu so với năng lực mô hình.",
+        "Hàng chục người trong cuộc đã chia sẻ với Axios, cho thấy lo ngại về an toàn không còn là ý kiến cá biệt.",
+        "Câu hỏi lớn đặt ra là liệu có thể kiểm soát an toàn các mô hình AI ngày càng mạnh trước khi tung ra thị trường."
+      ],
+      "why_it_matters_vi": "Đây là tín hiệu hiếm hoi cho thấy chính kỹ sư bên trong hai phòng lab AI hàng đầu đang nghi ngờ năng lực tự kiểm soát của họ, ảnh hưởng trực tiếp tới lộ trình ra mắt sản phẩm, quy định và chiến lược tin cậy của doanh nghiệp.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "62b11a05-9545-49b0-a411-67423a9df13f",
+      "article_id": "6483f1d2-2ef4-57c1-a73b-62709a091426",
+      "canonical_url": "https://the-decoder.com/openai-updates-chatgpt-to-handle-complex-everyday-questions-web-searches-and-images-more-reliably",
+      "title": "OpenAI updates ChatGPT to handle complex everyday questions, web searches, and images more reliably",
+      "snippet": "OpenAI is making GPT-6.2 Sol the new default model in ChatGPT's chat tab, rolling it out worldwide. In internal tests, image understanding jumped from 47.4 to 71.7 percent, and the model now handles difficult instructions correctly 78.1 percent of the time. It also sticks to safety policies more consistently.\nThe article OpenAI updates ChatGPT to handle complex everyday questions, web searches, and images more reliably appeared first on The Decoder.",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "the_decoder",
+      "source_domain": "the-decoder.com",
+      "source_tier": 1,
+      "published_at": "2026-11-23T20:39:18+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.4,
+      "importance": 6,
+      "practicality": 5,
+      "depth": 5,
+      "recency_boost": 0.5,
+      "composite_score": 6.962,
+      "summary_vi": [
+        "OpenAI đưa GPT-6.2 Sol thành mô hình mặc định trong tab chat của ChatGPT và triển khai trên toàn cầu.",
+        "Khả năng hiểu hình ảnh trong thử nghiệm nội bộ tăng từ 47,4% lên 71,7%.",
+        "Mô hình xử lý đúng các chỉ dẫn phức tạp 78,1% số lần, cải thiện rõ rệt độ chính xác.",
+        "ChatGPT xử lý câu hỏi thường ngày phức tạp, tìm kiếm web và hình ảnh ổn định hơn trước.",
+        "Mô hình tuân thủ các chính sách an toàn nhất quán hơn trong quá trình sử dụng."
+      ],
+      "why_it_matters_vi": "Việc nâng cấp mặc định trên toàn cầu giúp người dùng phổ thông và doanh nghiệp tiếp cận khả năng hiểu ảnh, tra cứu web tốt hơn mà không cần cấu hình, đồng thời đặt chuẩn mới cho trợ lý AI.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "bfc19057-56f1-4933-af71-b30583149051",
+      "article_id": "0b8ea970-25fe-5e85-8233-2419b349b025",
+      "canonical_url": "https://the-decoder.com/anthropics-appetite-for-compute-is-pushing-xai-toward-a-rent-over-build-strategy",
+      "title": "Anthropic's appetite for compute is pushing xAI toward a rent-over-build strategy",
+      "snippet": "Since May, SpaceXSI has been renting compute to competitors like Anthropic and Google while scaling back its own AI projects. Anthropic pays about $3.1 billion a month, Google $800 million, the New York Times reports. After its June IPO, SpaceXSI disbanded the 60-person Grok Imagine team, among other cuts.\nThe article Anthropic&#039;s appetite for compute is pushing xAI toward a rent-over-build strategy appeared first on The Decoder.",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "the_decoder",
+      "source_domain": "the-decoder.com",
+      "source_tier": 1,
+      "published_at": "2026-11-23T18:47:53+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.4,
+      "importance": 7,
+      "practicality": 3,
+      "depth": 6,
+      "recency_boost": 0.5,
+      "composite_score": 6.942,
+      "summary_vi": [
+        "Từ tháng 5, SpaceXSI cho Anthropic và Google thuê compute, đồng thời thu hẹp các dự án AI của chính mình.",
+        "Anthropic trả khoảng 3,1 tỷ USD mỗi tháng, Google trả 800 triệu USD, theo New York Times.",
+        "Sau IPO hồi tháng 6, SpaceXSI giải tán nhóm Grok Imagine gồm 60 người cùng nhiều đợt cắt giảm khác.",
+        "Công ty chuyển dần từ mô hình tự xây hạ tầng sang cho thuê compute cho các đối thủ.",
+        "Nhu cầu compute quá lớn của Anthropic là động lực chính đẩy xAI theo hướng cho thuê thay vì tự phát triển."
+      ],
+      "why_it_matters_vi": "Nhu cầu compute tăng vọt đang định hình lại cục diện ngành AI: bên không thắng trong cuộc đua mô hình vẫn có thể kiếm tiền nhờ bán hạ tầng cho đối thủ.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "a61e0ca3-b7c7-4fef-88b3-bf36dadcd369",
+      "article_id": "284c43cf-12d6-5146-bff2-394c9b5b779a",
+      "canonical_url": "https://technologyreview.com/2026/11/24/1149622/data-centers-natural-gas",
+      "title": "Data centers are getting their own natural gas power plants",
+      "snippet": "One of the biggest roadblocks to starting up a data center is getting approval to connect to the electric grid—a wait that could last as long as a decade. Some developers aren’t willing to wait and are instead opting to build their own off-grid, or behind-the-meter, gas power plants to fuel the AI boom.&#160;&#160; xAI’s&#8230;",
+      "industry_tags": [
+        "ai",
+        "construction"
+      ],
+      "source_id": "mit_technology_review",
+      "source_domain": "technologyreview.com",
+      "source_tier": 1,
+      "published_at": "2026-11-24T11:00:00+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.0,
+      "importance": 7,
+      "practicality": 3,
+      "depth": 3,
+      "recency_boost": 1.0,
+      "composite_score": 6.89,
+      "summary_vi": [
+        "Kết nối lưới điện có thể phải chờ tới 10 năm, thành rào cản lớn nhất khi khởi động trung tâm dữ liệu.",
+        "Nhiều nhà phát triển chọn xây nhà máy điện khí riêng, vận hành ngoài lưới hoặc sau công tơ (behind-the-meter).",
+        "xAI được nêu như một ví dụ điển hình cho hướng đi tự chủ nguồn điện này.",
+        "Động lực chính là nhu cầu điện tăng vọt từ các cụm GPU phục vụ làn sóng AI.",
+        "Cách làm giúp rút ngắn thời gian đưa dự án vào vận hành, dù còn tranh cãi về phát thải và chi phí."
+      ],
+      "why_it_matters_vi": "Nếu xu hướng này lan rộng, hạ tầng AI sẽ dần tách khỏi lưới điện công cộng, buộc ngành năng lượng phải tính lại quy hoạch, phụ tải và tác động môi trường.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "9559b63c-055e-4b2e-ade0-19f1618d5700",
+      "article_id": "42d1bae2-3b4f-5064-974c-d8b3cd6d5222",
+      "canonical_url": "https://openai.com/index/introducing-gpt-6-2-astra-sol",
+      "title": "Introducing GPT-6.2 Astra and Sol",
+      "snippet": "Introducing GPT‑6.2 Astra and Sol, with better professional outputs, coding, computer use, and efficiency at lower cost across ChatGPT Work, Codex, and the API.",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "openai_news",
+      "source_domain": "openai.com",
+      "source_tier": 1,
+      "published_at": "2026-11-17T17:45:00+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.4,
+      "importance": 7,
+      "practicality": 6,
+      "depth": 3,
+      "recency_boost": 0.0,
+      "composite_score": 6.757,
+      "summary_vi": [
+        "OpenAI ra mắt hai mô hình mới Astra và Sol trong dòng GPT-6.2, hướng tới người dùng chuyên môn.",
+        "Các mô hình được quảng bá cho đầu ra chuyên nghiệp tốt hơn, hỗ trợ công việc văn phòng và nội dung kỹ thuật.",
+        "Năng lực lập trình và sử dụng máy tính được cải thiện, phù hợp tác vụ tự động hóa phức tạp hơn.",
+        "Hiệu quả tính toán được nâng cao, giúp giảm chi phí khi khai thác qua API.",
+        "Tính năng có mặt trên ChatGPT Work, Codex và API, mở rộng lựa chọn cho doanh nghiệp lẫn nhà phát triển."
+      ],
+      "why_it_matters_vi": "Bản nâng cấp này đáng chú ý vì kết hợp năng lực chuyên môn, coding và computer use với chi phí thấp hơn, tác động trực tiếp đến năng suất và bài toán vận hành AI trong doanh nghiệp.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "2a3979bc-da07-4c6b-bf32-b3cbe2b57122",
+      "article_id": "b0cb196c-e428-572b-9f6d-f4b2975e1cac",
+      "canonical_url": "https://technologyreview.com/2026/11/24/1149669/the-download-data-centers-gas-ai-consciousness",
+      "title": "The Download: AI’s gas power boom and a consciousness reality check",
+      "snippet": "This is today&#8217;s edition of The Download, our weekday newsletter that provides a daily dose of what&#8217;s going on in the world of technology. Data centers are getting their own natural gas power plants One of the biggest obstacles to building a data center is getting approval to connect to the grid, a wait that&#8230;",
+      "industry_tags": [
+        "ai",
+        "construction"
+      ],
+      "source_id": "mit_technology_review",
+      "source_domain": "technologyreview.com",
+      "source_tier": 1,
+      "published_at": "2026-11-24T13:10:00+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.8,
+      "importance": 6,
+      "practicality": 3,
+      "depth": 3,
+      "recency_boost": 1.0,
+      "composite_score": 6.754,
+      "summary_vi": [
+        "Trung tâm dữ liệu đang tự xây nhà máy điện khí riêng để không phải chờ đấu nối lưới điện quá lâu.",
+        "Xin phép đấu nối lưới được xem là một trong những rào cản lớn nhất khi phát triển trung tâm dữ liệu.",
+        "Nhu cầu điện tăng vọt từ làn sóng AI đang thúc đẩy xu hướng tự chủ nguồn điện tại chỗ.",
+        "Bản tin cũng dành một phần bàn về ý thức, với góc nhìn thực tế hơn về các tuyên bố liên quan.",
+        "Đây là bản tin công nghệ hằng ngày của The Download, điểm nhanh các diễn biến đáng chú ý."
+      ],
+      "why_it_matters_vi": "Điện năng đang trở thành nút thắt chiến lược của hạ tầng AI; ai hiểu cách các ông lớn tự lo nguồn điện sẽ nắm lợi thế về chi phí và tốc độ triển khai.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "ddc000e3-07a1-4b2a-a095-7af41e725929",
+      "article_id": "aa989d5f-53d5-5489-b11a-aeaf7f715f66",
+      "canonical_url": "https://iot-analytics.com/iot-gateways-market-2-89-billion-by-2030",
+      "title": "IoT gateways market: $2.89 billion by 2030 as brownfield OT integration, energy assets, and 5G upgrades drive demand",
+      "snippet": "In short Industrial and enterprise IoT gateway market snapshot and outlook IoT gateway hardware revenue is forecast to reach $2.89 billion by 2030. Global industrial and enterprise IoT gateway revenue reached $1.79 billion in 2025 and is estimated at $2.0 billion in 2026, according to IoT Analytics&#8217; 58-page IoT Gateway Market Report 2026–2030 (November 2026) [&#8230;]\nThe post IoT gateways market: $2.89 billion by 2030 as brownfield OT integration, energy assets, and 5G upgrades drive demand appeared first on IoT Analytics.",
+      "industry_tags": [
+        "iot",
+        "manufacturing"
+      ],
+      "source_id": "iot_analytics",
+      "source_domain": "iot-analytics.com",
+      "source_tier": 1,
+      "published_at": "2026-11-23T17:12:38+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.8,
+      "importance": 6,
+      "practicality": 4,
+      "depth": 4,
+      "recency_boost": 0.5,
+      "composite_score": 6.659,
+      "summary_vi": [
+        "Doanh thu phần cứng gateway IoT công nghiệp và doanh nghiệp dự kiến đạt 2,89 tỷ USD vào năm 2030.",
+        "Năm 2025, thị trường đạt 1,79 tỷ USD và ước tính khoảng 2,0 tỷ USD trong năm 2026.",
+        "Nhu cầu tăng nhờ tích hợp OT vào hạ tầng cũ (brownfield) thay vì thay mới toàn bộ.",
+        "Các tài sản ngành năng lượng là động lực quan trọng thúc đẩy triển khai gateway.",
+        "Nâng cấp lên 5G cũng góp phần đáng kể vào tăng trưởng giai đoạn 2026-2030."
+      ],
+      "why_it_matters_vi": "Con số này giúp nhà cung cấp và nhà tích hợp hệ thống thấy rõ quy mô, tốc độ tăng trưởng và ba động lực chính của thị trường gateway IoT để lên kế hoạch đầu tư và định vị sản phẩm.",
+      "industry_group": "iot"
+    },
+    {
+      "score_id": "3c1c946a-9bbd-40f0-9687-332094e51376",
+      "article_id": "3eb646d4-e0a7-5b59-b004-392b8bb5c437",
+      "canonical_url": "https://iot-analytics.com/as-ai-accelerates-the-20b-smart-maintenance-market-who-will-close-the-loop-from-alert-to-repair",
+      "title": "As AI accelerates the $20B smart maintenance market, who will close the loop from alert to repair?",
+      "snippet": "In short Why it matters &#8220;Closing the loop&#8221; has become a top theme in smart maintenance discussions. Over the past year, the phrase came up repeatedly at leading maintenance and asset performance trade fairs and in the 75+ interviews the IoT Analytics team conducted with vendors and adopters. Vendors use it for the same goal: [&#8230;]\nThe post As AI accelerates the $20B smart maintenance market, who will close the loop from alert to repair? appeared first on IoT Analytics.",
+      "industry_tags": [
+        "ai",
+        "iot",
+        "manufacturing"
+      ],
+      "source_id": "iot_analytics",
+      "source_domain": "iot-analytics.com",
+      "source_tier": 1,
+      "published_at": "2026-11-18T16:14:57+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.6,
+      "importance": 7,
+      "practicality": 4,
+      "depth": 5,
+      "recency_boost": 0.0,
+      "composite_score": 6.598,
+      "summary_vi": [
+        "Thị trường bảo trì thông minh trị giá 20 tỷ USD đang tăng tốc nhờ AI, thu hút cả nhà cung cấp lẫn doanh nghiệp ứng dụng.",
+        "“Khép kín vòng lặp” – từ cảnh báo đến sửa chữa – đã thành chủ đề hàng đầu trong các thảo luận về bảo trì thông minh.",
+        "Cụm từ này xuất hiện lặp đi lặp lại tại các hội chợ lớn về bảo trì và hiệu suất tài sản trong năm qua.",
+        "Nhóm IoT Analytics đã phỏng vấn hơn 75 nhà cung cấp và đơn vị ứng dụng để làm rõ khái niệm này.",
+        "Các nhà cung cấp đều dùng chung một khái niệm cho cùng mục tiêu, nhưng ai thực sự khép kín quy trình vẫn là câu hỏi mở."
+      ],
+      "why_it_matters_vi": "Với người làm công nghiệp, giá trị thật của AI không nằm ở cảnh báo mà ở việc rút ngắn thời gian từ phát hiện lỗi đến sửa chữa – yếu tố quyết định lợi tức đầu tư của bảo trì thông minh.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "1fd71c88-73c1-4f82-9696-3a4c59cc8b77",
+      "article_id": "62b06d8f-c21a-505a-aaa1-5e778cdd3a53",
+      "canonical_url": "https://marktechpost.com/2026/11/24/openai-cisco-shirudo-ebpf-linux-runtime",
+      "title": "OpenAI and Cisco Releases Shirudo: An Open-Source Linux Runtime Allowing Agents to Defend Systems Without Downtime",
+      "snippet": "OpenAI and Cisco released Shirudo, a pre-release, BSD-licensed eBPF runtime for Linux. AI agents write signed \"shields\" that block exploit paths on running systems while teams test and roll out real patches.\nThe post OpenAI and Cisco Releases Shirudo: An Open-Source Linux Runtime Allowing Agents to Defend Systems Without Downtime appeared first on MarkTechPost.",
+      "industry_tags": [
+        "ai",
+        "iot"
+      ],
+      "source_id": "marktechpost",
+      "source_domain": "marktechpost.com",
+      "source_tier": 2,
+      "published_at": "2026-11-24T14:16:53+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 6.0,
+      "importance": 7,
+      "practicality": 4,
+      "depth": 4,
+      "recency_boost": 1.0,
+      "composite_score": 6.53,
+      "summary_vi": [
+        "OpenAI và Cisco hợp tác phát hành Shirudo, runtime eBPF mã nguồn mở cho Linux, giấy phép BSD, ở dạng tiền phát hành.",
+        "Các tác nhân AI tự viết ra những \"shield\" có chữ ký để chặn đường khai thác lỗ hổng trên hệ thống đang chạy.",
+        "Nhờ đó đội ngũ có thêm thời gian kiểm thử và triển khai bản vá chính thức mà không phải dừng dịch vụ.",
+        "Công nghệ dựa trên eBPF nên can thiệp ngay trong nhân Linux, không cần sửa mã hay khởi động lại ứng dụng.",
+        "Dù mới là bản tiền phát hành, công cụ này cho thấy hướng dùng AI để phòng thủ chủ động, giảm thời gian phơi nhiễm."
+      ],
+      "why_it_matters_vi": "Với người làm hạ tầng và bảo mật, Shirudo mở ra cách thu hẹp cửa sổ phơi nhiễm: vá tạm bằng eBPF do AI tạo, không downtime, trong khi chờ bản vá chính thức.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "e1f8f1dd-8e17-47b6-8202-846c39719e79",
+      "article_id": "65131330-4271-5a75-ab0c-01768b152fde",
+      "canonical_url": "https://technologyreview.com/2026/11/24/1148091/raising-the-stakes-for-enterprise-networks-with-ai-modernization",
+      "title": "Raising the stakes for enterprise networks with AI modernization",
+      "snippet": "Enterprise networks are under severe strain. As companies rush to deploy artificial intelligence, the technology is quickly becoming the biggest source of demand on the network. Now, agentic AI is adding to the load. Tasks conducted by AI agents generate an estimated 450% more network traffic than the same tasks done by human workers. As&#8230;",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "mit_technology_review",
+      "source_domain": "technologyreview.com",
+      "source_tier": 1,
+      "published_at": "2026-11-24T15:15:16+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.0,
+      "importance": 5,
+      "practicality": 4,
+      "depth": 3,
+      "recency_boost": 1.0,
+      "composite_score": 6.465,
+      "summary_vi": [
+        "Mạng doanh nghiệp đang chịu áp lực nặng khi các công ty ồ ạt triển khai AI, biến AI thành nguồn tiêu thụ băng thông lớn nhất.",
+        "AI tác tử (agentic AI) càng làm tăng tải: tác vụ do AI đảm nhận sinh ra lưu lượng mạng nhiều hơn khoảng 450% so với người làm cùng việc.",
+        "Nhu cầu hạ tầng tăng nhanh hơn dự báo, buộc doanh nghiệp phải tính lại năng lực mạng và quy hoạch băng thông.",
+        "Bài viết đặt vấn đề hiện đại hóa hạ tầng mạng để đáp ứng kỳ vọng mới của AI trong doanh nghiệp.",
+        "Đầu tư mạng cần được ưu tiên như một phần của chiến lược AI, không chỉ tập trung vào mô hình và ứng dụng."
+      ],
+      "why_it_matters_vi": "Lưu lượng tăng vọt do AI khiến hạ tầng mạng cũ dễ thành điểm nghẽn, làm dự án AI chậm tiến độ và đội chi phí — lý do đội hạ tầng cần vào cuộc sớm.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "6da21973-9c86-44f1-93f4-477c0982eed2",
+      "article_id": "a1a32a21-a271-58a8-b74b-7a38e091b6b1",
+      "canonical_url": "https://technologyreview.com/2026/11/20/1149399/the-most-misunderstood-graph-in-ai-just-got-a-major-update",
+      "title": "The most misunderstood graph in AI just got a major update",
+      "snippet": "A new report from the AI evaluation nonprofit METR finds that some AI capabilities are continuing to improve along an exponential trajectory—but it also indicates that models aren’t quite as good at tasks that require judgment as they are at coding.  The report is an update to the organization’s time horizon plot, which was widely&#8230;",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "mit_technology_review",
+      "source_domain": "technologyreview.com",
+      "source_tier": 1,
+      "published_at": "2026-11-20T18:15:15+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 9.6,
+      "importance": 7,
+      "practicality": 4,
+      "depth": 4,
+      "recency_boost": 0.0,
+      "composite_score": 6.448,
+      "summary_vi": [
+        "METR công bố báo cáo cập nhật cho biểu đồ \"time horizon\" từng gây nhiều tranh luận.",
+        "Một số năng lực AI tiếp tục cải thiện theo quỹ đạo hàm mũ, theo dữ liệu đánh giá mới.",
+        "Mô hình vẫn yếu hơn ở các nhiệm vụ cần phán đoán so với kỹ năng lập trình.",
+        "Báo cáo là bản cập nhật cho biểu đồ thời gian nổi tiếng của tổ chức phi lợi nhuận này.",
+        "Kết quả cho thấy khoảng cách giữa tiến bộ nhanh ở kỹ năng hẹp và năng lực tổng quát."
+      ],
+      "why_it_matters_vi": "Đáng chú ý vì biểu đồ time horizon thường được dùng để dự báo tiến bộ AI; bản cập nhật giúp người trong ngành hiệu chỉnh kỳ vọng về tốc độ và giới hạn của mô hình.",
+      "industry_group": "ai"
+    },
+    {
+      "score_id": "e9e37891-4127-4333-adb0-a78881af05d3",
+      "article_id": "b2353970-a02f-5fb4-a824-91e37d705448",
+      "canonical_url": "https://openai.com/index/managing-frontier-ai-risk",
+      "title": "Managing frontier AI risk: From training to deployment",
+      "snippet": "OpenAI explains how it manages frontier AI risk from training through deployment with model alignment, sandboxing, blocking safeguards, and monitoring.",
+      "industry_tags": [
+        "ai"
+      ],
+      "source_id": "openai_news",
+      "source_domain": "openai.com",
+      "source_tier": 1,
+      "published_at": "2026-11-18T06:00:00+00:00",
+      "published_at_imputed": false,
+      "first_seen_at": "2026-11-24T15:40:41.245516+00:00",
+      "credibility_blended": 10.0,
+      "importance": 7,
+      "practicality": 4,
+      "depth": 3,
+      "recency_boost": 0.0,
+      "composite_score": 6.4,
+      "summary_vi": [
+        "OpenAI trình bày quy trình quản lý rủi ro AI tiên phong từ huấn luyện đến triển khai.",
+        "Mô hình được căn chỉnh nhằm giảm hành vi nguy hiểm và tăng khả năng tuân thủ chính sách.",
+        "Sandboxing cô lập môi trường thử nghiệm, hạn chế tác động ngoài ý muốn trước khi phát hành.",
+        "Các lớp chặn và bảo vệ giúp ngăn nội dung, hành vi bị cấm trong quá trình sử dụng.",
+        "Hệ thống giám sát liên tục theo dõi hoạt động sau triển khai để phát hiện và xử lý rủi ro."
+      ],
+      "why_it_matters_vi": "Bài viết đáng chú ý vì cho thấy cách một công ty hàng đầu cụ thể hóa an toàn AI thành quy trình nhiều lớp, hữu ích cho đội ngũ phát triển và quản trị rủi ro.",
+      "industry_group": "ai"
+    }
+  ]
+}
